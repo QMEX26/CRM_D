@@ -1,0 +1,37 @@
+{
+  "expo": {
+    "name": "Calling CRM",
+    "slug": "calling-crm",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.qmex.crmD",
+      "googleServicesFile": "./google-services.json",
+      "adaptiveIcon": {
+        "backgroundColor": "#FFFFFF",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-video"
+    ],
+    "extra": {
+      "apiBaseUrl": "https://procedures-anderson-importance-drivers.trycloudflare.com",
+      "eas": {
+        "projectId": "19054731-661a-4d43-ae2a-de29e1f17064"
+      }
+    },
+    "owner": "kishoreqmex"
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "624482364548",
+    "project_id": "callingcrm-d-472b1",
+    "storage_bucket": "callingcrm-d-472b1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:624482364548:android:4a10c352f6f32dd5f3a6d1",
+        "android_client_info": {
+          "package_name": "com.qmex.crmD"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB1gM9Oklmrm9IZUwb7kM34Y8Dzk_I4NX0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
