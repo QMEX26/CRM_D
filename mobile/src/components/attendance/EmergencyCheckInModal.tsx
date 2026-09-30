@@ -12,10 +12,12 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import { useAttendance } from '../../context/AttendanceContext';
+import { useSubscription } from '../../context/SubscriptionContext';
 import { startMobileEmergencyAlarm, stopMobileEmergencyAlarm } from '../../utils/alarmSound';
 
 export const EmergencyCheckInModal: React.FC = () => {
   const { user, isAuthenticated } = useAuth();
+  const { isAccessGranted, isLoading: subLoading } = useSubscription();
   const {
     attendance,
     isOverdue,
@@ -37,7 +39,13 @@ export const EmergencyCheckInModal: React.FC = () => {
     attendance?.shiftDisplayName || user?.shiftDisplayName || '10:00 AM – 07:00 PM';
 
   const isVisible =
-    isAuthenticated && isOverdue && !isSnoozed && !isClockedIn && !isClockedOut;
+    isAuthenticated &&
+    isAccessGranted &&
+    !subLoading &&
+    isOverdue &&
+    !isSnoozed &&
+    !isClockedIn &&
+    !isClockedOut;
 
   // Pulse animation loop
   useEffect(() => {
