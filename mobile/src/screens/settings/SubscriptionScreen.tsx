@@ -22,6 +22,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useSubscription } from '../../context/SubscriptionContext';
 import { subscriptionApi } from '../../api/subscriptionApi';
 import { Subscription, SubscriptionPlan, RazorpayOrderResponse } from '../../types/subscription';
+import { RazorpayCheckoutModal, RazorpaySuccessPayload } from '../../components/subscription/RazorpayCheckoutModal';
 
 interface SubscriptionScreenProps {
   isGateMode?: boolean;
@@ -37,6 +38,10 @@ export const SubscriptionScreen: React.FC<SubscriptionScreenProps> = ({ isGateMo
   const [subscribing, setSubscribing] = useState(false);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [plan, setPlan] = useState<SubscriptionPlan | null>(null);
+
+  // Real Razorpay Checkout modal state
+  const [checkoutOrder, setCheckoutOrder] = useState<RazorpayOrderResponse | null>(null);
+  const [checkoutVisible, setCheckoutVisible] = useState(false);
 
   // Trap Android hardware back button if user is in Gate Mode
   useEffect(() => {
@@ -73,50 +78,48 @@ export const SubscriptionScreen: React.FC<SubscriptionScreenProps> = ({ isGateMo
     try {
       // 1. Request backend to create Razorpay order (Backend enforces server-side role pricing)
       const order: RazorpayOrderResponse = await subscriptionApi.createOrder();
-
-      // 2. Initiate Payment Checkout Flow
-      Alert.alert(
-        'Razorpay Checkout',
-        `Initiating payment of ₹${order.amount} for ${order.planName}.\n\nOrder ID: ${order.orderId}`,
-        [
-          {
-            text: 'Cancel',
-            style: 'cancel',
-            onPress: () => setSubscribing(false),
-          },
-          {
-            text: 'Simulate Success (Sandbox)',
-            onPress: async () => {
-              try {
-                // In production, razorpay_signature is returned from the native Razorpay SDK
-                const verifiedSub = await subscriptionApi.verifyPayment({
-                  razorpayOrderId: order.orderId,
-                  razorpayPaymentId: 'pay_' + Math.random().toString(36).substring(2, 12),
-                  razorpaySignature: 'mock_sig_' + order.orderId,
-                });
-                setSubscription(verifiedSub);
-
-                // Global subscription context update to immediately unblock the SubscriptionGate
-                await refreshSubscription();
-
-                Alert.alert(
-                  '🎉 Subscription Activated',
-                  `Your ${order.planName} is now ACTIVE! Welcome to Calling CRM.`
-                );
-              } catch (verifyErr: any) {
-                Alert.alert('Payment Verification Failed', verifyErr.message || 'Signature mismatch');
-              } finally {
-                setSubscribing(false);
-                loadData();
-              }
-            },
-          },
-        ]
-      );
+      setCheckoutOrder(order);
+      setCheckoutVisible(true);
     } catch (err: any) {
       Alert.alert('Order Creation Failed', err.message || 'Could not initiate subscription order.');
+    } finally {
       setSubscribing(false);
     }
+  };
+
+  const handlePaymentSuccess = async (data: RazorpaySuccessPayload) => {
+    setCheckoutVisible(false);
+    setLoading(true);
+    try {
+      const verifiedSub = await subscriptionApi.verifyPayment({
+        razorpayOrderId: data.razorpay_order_id,
+        razorpayPaymentId: data.razorpay_payment_id,
+        razorpaySignature: data.razorpay_signature,
+      });
+      setSubscription(verifiedSub);
+
+      // Global subscription context update to immediately unblock the SubscriptionGate
+      await refreshSubscription();
+
+      Alert.alert(
+        '🎉 Subscription Activated',
+        `Your payment was successful! Your subscription is now ACTIVE.`
+      );
+    } catch (verifyErr: any) {
+      Alert.alert('Payment Verification Failed', verifyErr.message || 'Signature mismatch');
+    } finally {
+      setLoading(false);
+      loadData();
+    }
+  };
+
+  const handlePaymentFailure = (error: any) => {
+    setCheckoutVisible(false);
+    console.warn('Razorpay checkout failed or cancelled:', error);
+    Alert.alert(
+      'Payment Incomplete',
+      error?.description || error?.message || 'The payment process was closed or not completed.'
+    );
   };
 
   const handleLogout = async () => {
@@ -316,6 +319,14 @@ export const SubscriptionScreen: React.FC<SubscriptionScreenProps> = ({ isGateMo
             </View>
           </ScrollView>
         )}
+
+        <RazorpayCheckoutModal
+          visible={checkoutVisible}
+          order={checkoutOrder}
+          onSuccess={handlePaymentSuccess}
+          onFailure={handlePaymentFailure}
+          onClose={() => setCheckoutVisible(false)}
+        />
       </SafeAreaView>
     </AmbientBackground>
   );

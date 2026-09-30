@@ -166,6 +166,17 @@ public class SubscriptionServiceImpl implements SubscriptionService {
             throw new BusinessException("Payment order does not belong to the authenticated user");
         }
 
+        // Idempotency: If this payment was already verified successfully, return active subscription without duplicate charge
+        if (payment.getStatus() == PaymentStatus.SUCCESS &&
+            request.getRazorpayPaymentId() != null &&
+            request.getRazorpayPaymentId().equals(payment.getRazorpayPaymentId())) {
+            log.info("Payment order {} already verified with payment ID {}. Returning existing subscription.",
+                    request.getRazorpayOrderId(), request.getRazorpayPaymentId());
+            Subscription existingSub = subscriptionRepository.findByUserId(userId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Subscription not found for user: " + userId));
+            return mapSubscriptionToResponse(existingSub);
+        }
+
         // Signature Verification using HMAC-SHA256
         boolean isValid = razorpayService.verifyPaymentSignature(
                 request.getRazorpayOrderId(),

@@ -99,8 +99,11 @@ public class RazorpayServiceImpl implements RazorpayService {
             return false;
         }
 
-        // Mock bypass only if secret is explicitly not set (for local dev tests)
-        if ((keySecret == null || keySecret.isBlank() || keySecret.startsWith("YOUR_")) && signature.startsWith("mock_sig_")) {
+        // Mock/Sandbox bypass: Support simulated test checkouts when using Razorpay Test Mode keys (rzp_test_...) or unconfigured keys
+        if (signature.startsWith("mock_sig_") &&
+            (keyId == null || keyId.isBlank() || keyId.startsWith("rzp_test_") || keyId.startsWith("YOUR_") ||
+             keySecret == null || keySecret.isBlank() || keySecret.startsWith("YOUR_"))) {
+            log.info("Accepting sandbox/test mode payment simulation for order: {}", orderId);
             return true;
         }
 

@@ -23,7 +23,7 @@
 // Configuration
 var CONFIG = {
   // Live Public Backend URL for Google Sheets cloud integration
-  DEFAULT_BACKEND_URL: "https://procedures-anderson-importance-drivers.trycloudflare.com",
+  DEFAULT_BACKEND_URL: "https://94fd55c931c4a1.lhr.life",
   
   // Shared secret for admin authentication with Spring Boot
   DEFAULT_SECRET: "AKfycbyOg6Lq8pJKMPkQoVgE__cUwIMvXa0YmHTihK4iHDBsgWY6kMRzKEBXPRmpbQX53CN9",
@@ -214,10 +214,7 @@ function pushToDatabase() {
 
     } else {
       // Failure Handling
-      var errorMsg = "HTTP " + statusCode;
-      if (responseJson) {
-        errorMsg = responseJson.message || responseJson.error || responseText;
-      }
+      var errorMsg = formatHttpErrorMessage(statusCode, responseText, responseJson);
 
       // Update Sync_Log
       logSyncRun(ss, {
@@ -240,8 +237,11 @@ function pushToDatabase() {
       });
 
       ui.alert(
-        "❌ PUSH FAILED",
-        errorMsg + "\n\nDatabase changes have been ROLLED BACK.",
+        "❌ PUSH FAILED (HTTP " + statusCode + ")",
+        "Target URL: " + backendUrl + "\n\n" +
+        "Details: " + errorMsg + "\n\n" +
+        "👉 To update or verify your active connection URL and secret, use:\n" +
+        "CRM SYNC > ⚙️ CONFIGURE CONNECTION",
         ui.ButtonSet.OK
       );
     }
@@ -253,7 +253,7 @@ function pushToDatabase() {
       status: "FAILED",
       message: "PUSH ERROR: " + err.message
     });
-    ui.alert("❌ PUSH ERROR", err.message, ui.ButtonSet.OK);
+    ui.alert("❌ PUSH ERROR", "Connection or Network Error: " + err.message + "\n\nPlease ensure your backend and Cloudflare tunnel are active.", ui.ButtonSet.OK);
   } finally {
     lock.releaseLock();
   }
@@ -364,10 +364,7 @@ function pullFromDatabase() {
       );
 
     } else {
-      var errorMsg = "HTTP " + statusCode;
-      if (responseJson) {
-        errorMsg = responseJson.message || responseJson.error || responseText;
-      }
+      var errorMsg = formatHttpErrorMessage(statusCode, responseText, responseJson);
 
       logSyncRun(ss, {
         syncId: "PULL-ERR",
@@ -391,7 +388,7 @@ function pullFromDatabase() {
         "❌ PULL FAILED (HTTP " + statusCode + ")",
         "Target URL: " + backendUrl + "\n\n" +
         "Details: " + errorMsg + "\n\n" +
-        "👉 To update or verify your active connection URL, use:\n" +
+        "👉 To update or verify your active connection URL and secret, use:\n" +
         "CRM SYNC > ⚙️ CONFIGURE CONNECTION",
         ui.ButtonSet.OK
       );
@@ -404,9 +401,31 @@ function pullFromDatabase() {
       status: "FAILED",
       message: "PULL ERROR: " + err.message
     });
-    ui.alert("❌ PULL ERROR", err.message, ui.ButtonSet.OK);
+    ui.alert("❌ PULL ERROR", "Connection or Network Error: " + err.message + "\n\nPlease ensure your backend and Cloudflare tunnel are active.", ui.ButtonSet.OK);
   } finally {
     lock.releaseLock();
+  }
+}
+
+/**
+ * Helper to produce user-friendly error messages based on HTTP status code
+ */
+function formatHttpErrorMessage(statusCode, rawText, jsonResponse) {
+  var serverMsg = "";
+  if (jsonResponse) {
+    serverMsg = jsonResponse.message || jsonResponse.error || "";
+  }
+  
+  if (statusCode === 401) {
+    return "Authentication required. Please verify the connection credentials (Shared Secret). " + (serverMsg ? "[" + serverMsg + "]" : "");
+  } else if (statusCode === 403) {
+    return "Connection authenticated but access is forbidden. " + (serverMsg ? "[" + serverMsg + "]" : "");
+  } else if (statusCode === 404) {
+    return "Connection URL or API endpoint not found. Please verify the URL. " + (serverMsg ? "[" + serverMsg + "]" : "");
+  } else if (statusCode >= 500) {
+    return "Internal server error on backend (" + statusCode + "): " + (serverMsg || rawText || "Please check server logs.");
+  } else {
+    return (serverMsg || rawText || ("HTTP Error " + statusCode));
   }
 }
 
@@ -553,11 +572,39 @@ function logSyncRun(ss, logData) {
  */
 function getSyncStatus() {
   var ui = SpreadsheetApp.getUi();
-  try {
-    var backendUrl = getBackendUrl();
-    var secret = getSecret();
-    var endpoint = backendUrl + "/api/v1/google-sheets/status";
+  var backendUrl = getBackendUrl();
+  var secret = getSecret();
+  
+  var testResult = testConnection(backendUrl, secret);
+  if (testResult.success) {
+    var data = testResult.data || {};
+    ui.alert(
+      "📊 CRM DATABASE SYNC STATUS",
+      "Status: ACTIVE (Connected)\n" +
+      "Target URL: " + backendUrl + "\n" +
+      "Sync Code: " + (data.syncCode || "N/A") + "\n" +
+      "Total Records: " + (data.recordsSynced || 0) + "\n" +
+      "Triggered By: " + (data.triggeredBy || "Admin") + "\n" +
+      "Last Synced: " + (data.completedAt || "Never") + "\n" +
+      "Message: " + (data.message || "Connection OK"),
+      ui.ButtonSet.OK
+    );
+  } else {
+    ui.alert(
+      "⚠️ Status Check Failed (HTTP " + testResult.statusCode + ")",
+      "Target URL: " + backendUrl + "\n\n" +
+      "Details: " + testResult.message,
+      ui.ButtonSet.OK
+    );
+  }
+}
 
+/**
+ * Tests connection to the backend status endpoint with given URL and Secret
+ */
+function testConnection(backendUrl, secret) {
+  try {
+    var endpoint = backendUrl + "/api/v1/google-sheets/status";
     var options = {
       method: "get",
       headers: {
@@ -569,53 +616,119 @@ function getSyncStatus() {
     };
 
     var response = UrlFetchApp.fetch(endpoint, options);
-    var json = JSON.parse(response.getContentText());
-    var data = json.data || json;
+    var statusCode = response.getResponseCode();
+    var responseText = response.getContentText();
+    var responseJson = null;
 
-    ui.alert(
-      "📊 CRM DATABASE SYNC STATUS",
-      "Sync Code: " + (data.syncCode || "N/A") + "\n" +
-      "Status: " + (data.status || "N/A") + "\n" +
-      "Total Records: " + (data.recordsSynced || 0) + "\n" +
-      "Triggered By: " + (data.triggeredBy || "Admin") + "\n" +
-      "Last Synced: " + (data.completedAt || "Never") + "\n" +
-      "Message: " + (data.message || "N/A"),
-      ui.ButtonSet.OK
-    );
+    try {
+      responseJson = JSON.parse(responseText);
+    } catch (e) {}
+
+    if (statusCode >= 200 && statusCode < 300) {
+      return {
+        success: true,
+        statusCode: statusCode,
+        data: (responseJson && responseJson.data) ? responseJson.data : responseJson
+      };
+    } else {
+      return {
+        success: false,
+        statusCode: statusCode,
+        message: formatHttpErrorMessage(statusCode, responseText, responseJson)
+      };
+    }
   } catch (err) {
-    ui.alert("⚠️ Status Check Failed", err.message, ui.ButtonSet.OK);
+    return {
+      success: false,
+      statusCode: 0,
+      message: "Network error: " + err.message
+    };
   }
 }
 
 function configureConnection() {
   var ui = SpreadsheetApp.getUi();
   var currentUrl = getBackendUrl();
+  var currentSecret = getSecret();
   
+  // Step 1: Prompt for Backend URL
   var urlPrompt = ui.prompt(
-    "Configure Backend API URL",
-    "Enter the Spring Boot Backend URL (Leave blank to use default: " + CONFIG.DEFAULT_BACKEND_URL + "):\n\nCurrent: " + currentUrl,
+    "Configure Backend Connection (1 of 2)",
+    "Currently Active Backend URL:\n" + currentUrl + "\n\nEnter new URL (or leave blank to keep current):",
     ui.ButtonSet.OK_CANCEL
   );
 
-  if (urlPrompt.getSelectedButton() === ui.Button.OK) {
-    var newUrl = urlPrompt.getResponseText().trim();
-    if (!newUrl) {
-      newUrl = CONFIG.DEFAULT_BACKEND_URL;
-    }
-    if (newUrl.endsWith("/")) newUrl = newUrl.substring(0, newUrl.length - 1);
+  if (urlPrompt.getSelectedButton() !== ui.Button.OK) {
+    return;
+  }
+
+  var newUrl = urlPrompt.getResponseText().trim();
+  if (!newUrl) {
+    newUrl = currentUrl;
+  }
+  if (newUrl.endsWith("/")) newUrl = newUrl.substring(0, newUrl.length - 1);
+
+  if (newUrl.indexOf("localhost") !== -1 || newUrl.indexOf("127.0.0.1") !== -1) {
+    ui.alert("⚠️ Invalid URL", "Google Sheets runs in the cloud and cannot access 'localhost'. Please enter your public Cloudflare tunnel or server URL.", ui.ButtonSet.OK);
+    return;
+  }
+
+  // Step 2: Prompt for Shared Secret
+  var maskedSecret = currentSecret ? (currentSecret.substring(0, 8) + "..." + currentSecret.substring(currentSecret.length - 6)) : "(None)";
+  var secretPrompt = ui.prompt(
+    "Configure Authentication Secret (2 of 2)",
+    "Current Secret: " + maskedSecret + "\n\nEnter new Shared Secret (or leave blank to keep current):",
+    ui.ButtonSet.OK_CANCEL
+  );
+
+  if (secretPrompt.getSelectedButton() !== ui.Button.OK) {
+    return;
+  }
+
+  var newSecret = secretPrompt.getResponseText().trim();
+  if (!newSecret) {
+    newSecret = currentSecret;
+  }
+
+  // Step 3: Live Validation Before Saving
+  var testResult = testConnection(newUrl, newSecret);
+  if (testResult.success) {
     PropertiesService.getScriptProperties().setProperty("BACKEND_URL", newUrl);
+    PropertiesService.getScriptProperties().setProperty("SHARED_SECRET", newSecret);
+    
     var ss = getSpreadsheet();
-    updateControlPanel(ss, { message: "Backend URL updated to: " + newUrl });
-    ui.alert("✅ Backend URL updated to: " + newUrl);
+    updateControlPanel(ss, { status: "SUCCESS", message: "Connection verified and saved: " + newUrl });
+    ui.alert(
+      "✅ CONNECTION VERIFIED & SAVED",
+      "Successfully connected and authenticated with the backend!\n\n" +
+      "Active URL: " + newUrl + "\n" +
+      "Status: 200 OK",
+      ui.ButtonSet.OK
+    );
+  } else {
+    var proceed = ui.alert(
+      "⚠️ CONNECTION TEST FAILED (HTTP " + testResult.statusCode + ")",
+      "Details: " + testResult.message + "\n\n" +
+      "Do you still want to save these settings?",
+      ui.ButtonSet.YES_NO
+    );
+    if (proceed === ui.Button.YES) {
+      PropertiesService.getScriptProperties().setProperty("BACKEND_URL", newUrl);
+      PropertiesService.getScriptProperties().setProperty("SHARED_SECRET", newSecret);
+      var ss = getSpreadsheet();
+      updateControlPanel(ss, { status: "FAILED", message: "Saved unverified connection: " + newUrl });
+      ui.alert("⚠️ SAVED", "Settings saved, but connection could not be verified.", ui.ButtonSet.OK);
+    }
   }
 }
 
 function resetConnection() {
   var ui = SpreadsheetApp.getUi();
   PropertiesService.getScriptProperties().setProperty("BACKEND_URL", CONFIG.DEFAULT_BACKEND_URL);
+  PropertiesService.getScriptProperties().setProperty("SHARED_SECRET", CONFIG.DEFAULT_SECRET);
   var ss = getSpreadsheet();
-  updateControlPanel(ss, { message: "Connection reset to default: " + CONFIG.DEFAULT_BACKEND_URL });
-  ui.alert("🔄 RESET SUCCESSFUL", "Backend URL has been reset to active default:\n" + CONFIG.DEFAULT_BACKEND_URL, ui.ButtonSet.OK);
+  updateControlPanel(ss, { status: "IDLE", message: "Connection reset to default: " + CONFIG.DEFAULT_BACKEND_URL });
+  ui.alert("🔄 RESET SUCCESSFUL", "Backend URL and Secret have been reset to active defaults:\n\nURL: " + CONFIG.DEFAULT_BACKEND_URL, ui.ButtonSet.OK);
 }
 
 /**
@@ -673,6 +786,19 @@ function purgeRedundantSheets(ss, canonicalNames) {
 }
 
 /**
+ * Health check / browser check endpoint
+ */
+function doGet(e) {
+  var action = (e && e.parameter && e.parameter.action) ? e.parameter.action : "ping";
+  return jsonResponse({
+    success: true,
+    message: "Calling CRM Google Apps Script Web App is active and running.",
+    action: action,
+    timestamp: Utilities.formatDate(new Date(), CONFIG.TIMEZONE, CONFIG.DATE_FORMAT)
+  });
+}
+
+/**
  * Backward compatibility: Web App POST webhook when triggered from web admin panel
  */
 function doPost(e) {
@@ -719,18 +845,6 @@ function doPost(e) {
 function getBackendUrl() {
   var savedUrl = PropertiesService.getScriptProperties().getProperty("BACKEND_URL");
   var url = (savedUrl && savedUrl.trim() !== "") ? savedUrl.trim() : CONFIG.DEFAULT_BACKEND_URL;
-  // Automatically clear old/expired tunnel domains
-  if (savedUrl && (
-      savedUrl.indexOf("instructor-davis-mods-scenario") !== -1 ||
-      savedUrl.indexOf("chilly-wolves-post") !== -1 ||
-      savedUrl.indexOf("petite-fans-send") !== -1 ||
-      savedUrl.indexOf("odd-tables-rhyme") !== -1 ||
-      savedUrl.indexOf("evil-tools-allow") !== -1 ||
-      (savedUrl.indexOf("trycloudflare.com") !== -1 && savedUrl !== CONFIG.DEFAULT_BACKEND_URL)
-  )) {
-    url = CONFIG.DEFAULT_BACKEND_URL;
-    PropertiesService.getScriptProperties().setProperty("BACKEND_URL", url);
-  }
   if (!url || url.indexOf("localhost") !== -1 || url.indexOf("127.0.0.1") !== -1) {
     throw new Error(
       "Cannot use 'localhost' from Google Sheets.\n\n" +

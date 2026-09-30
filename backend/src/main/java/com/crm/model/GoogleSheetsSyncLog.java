@@ -30,6 +30,10 @@ public class GoogleSheetsSyncLog {
     @Builder.Default
     private String status = "IN_PROGRESS"; // IN_PROGRESS, SUCCESS, FAILED
 
+    @Column(name = "sync_type", length = 20)
+    @Builder.Default
+    private String syncType = "SYNC"; // PULL, PUSH, SYNC
+
     @Column(name = "sync_id", length = 50)
     private String syncId;
 
