@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { subscriptionApi } from '../api/subscriptionApi';
 import { Subscription, SubscriptionPlan } from '../types/subscription';
 import { useAuth } from './AuthContext';
@@ -7,11 +7,16 @@ interface SubscriptionContextType {
   subscription: Subscription | null;
   plan: SubscriptionPlan | null;
   isLoading: boolean;
-  isTrial: boolean;
-  isActive: boolean;
-  isExpired: boolean;
+  error: string | null;
+  isTrialActive: boolean;
+  isSubscriptionActive: boolean;
+  isSubscriptionExpired: boolean;
+  isSubscriptionCancelled: boolean;
+  isAccessGranted: boolean;
+  requiresSubscription: boolean;
   daysRemaining: number;
-  refreshSubscription: () => Promise<void>;
+  refreshSubscription: () => Promise<Subscription | null>;
+  clearSubscription: () => void;
 }
 
 const SubscriptionContext = createContext<SubscriptionContextType | undefined>(undefined);
@@ -21,40 +26,75 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [plan, setPlan] = useState<SubscriptionPlan | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const refreshSubscription = async () => {
-    if (!isAuthenticated) return;
+  const clearSubscription = useCallback(() => {
+    setSubscription(null);
+    setPlan(null);
+    setError(null);
+    setIsLoading(false);
+  }, []);
+
+  const refreshSubscription = useCallback(async (): Promise<Subscription | null> => {
+    if (!isAuthenticated) {
+      clearSubscription();
+      return null;
+    }
     try {
       setIsLoading(true);
+      setError(null);
       const [subData, planData] = await Promise.all([
-        subscriptionApi.getMySubscription().catch(() => null),
+        subscriptionApi.getMySubscription(),
         subscriptionApi.getMyPlan().catch(() => null),
       ]);
-      if (subData) {
-        setSubscription(subData);
-      }
+      setSubscription(subData);
       if (planData) {
         setPlan(planData);
       }
-    } catch (e) {
-      console.warn('[SubscriptionContext] Error loading subscription:', e);
+      return subData;
+    } catch (err: any) {
+      console.warn('[SubscriptionContext] Error fetching subscription:', err);
+      const errMsg =
+        err?.message ||
+        'Unable to verify subscription status. Please check your internet connection.';
+      setError(errMsg);
+      return null;
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [isAuthenticated, clearSubscription]);
 
   useEffect(() => {
     if (isAuthenticated) {
       refreshSubscription();
     } else {
-      setSubscription(null);
-      setPlan(null);
+      clearSubscription();
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, refreshSubscription, clearSubscription]);
 
-  const isTrial = subscription?.status === 'FREE_TRIAL';
-  const isActive = subscription?.status === 'ACTIVE';
-  const isExpired = subscription?.status === 'EXPIRED';
+  // Subscription state logic
+  const isTrialActive =
+    subscription?.status === 'FREE_TRIAL' &&
+    (subscription.isTrial || subscription.daysRemaining > 0);
+
+  const isSubscriptionActive =
+    subscription?.status === 'ACTIVE' && subscription.isActive;
+
+  const isSubscriptionExpired =
+    subscription?.status === 'EXPIRED' ||
+    (subscription?.status === 'FREE_TRIAL' &&
+      subscription.daysRemaining <= 0 &&
+      !subscription.isTrial);
+
+  const isSubscriptionCancelled = subscription?.status === 'CANCELLED';
+
+  // Access is granted if user is in an active free trial OR has an active paid subscription
+  const isAccessGranted = isTrialActive || isSubscriptionActive;
+
+  // Subscription is required when user has been evaluated and does NOT have granted access
+  const requiresSubscription =
+    !isLoading && !error && subscription !== null && !isAccessGranted;
+
   const daysRemaining = subscription?.daysRemaining ?? 0;
 
   return (
@@ -63,11 +103,16 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
         subscription,
         plan,
         isLoading,
-        isTrial,
-        isActive,
-        isExpired,
+        error,
+        isTrialActive,
+        isSubscriptionActive,
+        isSubscriptionExpired,
+        isSubscriptionCancelled,
+        isAccessGranted,
+        requiresSubscription,
         daysRemaining,
         refreshSubscription,
+        clearSubscription,
       }}
     >
       {children}

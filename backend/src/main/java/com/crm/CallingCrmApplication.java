@@ -65,8 +65,8 @@ public class CallingCrmApplication {
                             }
                             // Only set if not already set in OS environment or System properties
                             if (System.getenv(key) == null && System.getProperty(key) == null) {
-                                // Do not populate placeholder template values
-                                if (!value.startsWith("YOUR_")) {
+                                // Do not populate placeholder template values or empty strings
+                                if (!value.startsWith("YOUR_") && !value.isEmpty()) {
                                     System.setProperty(key, value);
                                 }
                             }

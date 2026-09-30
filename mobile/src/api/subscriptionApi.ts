@@ -18,6 +18,16 @@ export const subscriptionApi = {
   },
 
   /**
+   * Alias for getMySubscription (/api/v1/subscription/status)
+   */
+  getStatus: async (): Promise<Subscription> => {
+    const response = await apiClient.get<{ success: boolean; data: Subscription }>(
+      '/api/v1/subscription/status'
+    );
+    return response.data.data;
+  },
+
+  /**
    * Fetch all active subscription plans
    */
   getPlans: async (): Promise<SubscriptionPlan[]> => {

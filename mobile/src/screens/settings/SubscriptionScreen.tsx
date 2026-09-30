@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
-  Platform,
+  BackHandler,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,18 +19,34 @@ import { MeqHeader } from '../../components/common/MeqHeader';
 import { Button } from '../../components/common/Button';
 import { AmbientBackground } from '../../components/common/AmbientBackground';
 import { useAuth } from '../../context/AuthContext';
+import { useSubscription } from '../../context/SubscriptionContext';
 import { subscriptionApi } from '../../api/subscriptionApi';
 import { Subscription, SubscriptionPlan, RazorpayOrderResponse } from '../../types/subscription';
 
-export const SubscriptionScreen: React.FC = () => {
+interface SubscriptionScreenProps {
+  isGateMode?: boolean;
+}
+
+export const SubscriptionScreen: React.FC<SubscriptionScreenProps> = ({ isGateMode = false }) => {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, logout } = useAuth();
+  const { refreshSubscription } = useSubscription();
 
   const [loading, setLoading] = useState(true);
   const [subscribing, setSubscribing] = useState(false);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [plan, setPlan] = useState<SubscriptionPlan | null>(null);
+
+  // Trap Android hardware back button if user is in Gate Mode
+  useEffect(() => {
+    if (isGateMode) {
+      const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+        return true;
+      });
+      return () => backHandler.remove();
+    }
+  }, [isGateMode]);
 
   const loadData = async () => {
     try {
@@ -55,11 +71,10 @@ export const SubscriptionScreen: React.FC = () => {
   const handleSubscribe = async () => {
     setSubscribing(true);
     try {
-      // 1. Request backend to create Razorpay order
+      // 1. Request backend to create Razorpay order (Backend enforces server-side role pricing)
       const order: RazorpayOrderResponse = await subscriptionApi.createOrder();
 
       // 2. Initiate Payment Checkout Flow
-      // If running in development or sandbox mode without native SDK attached, prompt simulated verification
       Alert.alert(
         'Razorpay Checkout',
         `Initiating payment of ₹${order.amount} for ${order.planName}.\n\nOrder ID: ${order.orderId}`,
@@ -73,16 +88,20 @@ export const SubscriptionScreen: React.FC = () => {
             text: 'Simulate Success (Sandbox)',
             onPress: async () => {
               try {
-                // In production, razorpay_signature is returned from the checkout modal
+                // In production, razorpay_signature is returned from the native Razorpay SDK
                 const verifiedSub = await subscriptionApi.verifyPayment({
                   razorpayOrderId: order.orderId,
                   razorpayPaymentId: 'pay_' + Math.random().toString(36).substring(2, 12),
                   razorpaySignature: 'mock_sig_' + order.orderId,
                 });
                 setSubscription(verifiedSub);
+
+                // Global subscription context update to immediately unblock the SubscriptionGate
+                await refreshSubscription();
+
                 Alert.alert(
                   '🎉 Subscription Activated',
-                  `Your ${order.planName} is now ACTIVE! Thank you for subscribing.`
+                  `Your ${order.planName} is now ACTIVE! Welcome to Calling CRM.`
                 );
               } catch (verifyErr: any) {
                 Alert.alert('Payment Verification Failed', verifyErr.message || 'Signature mismatch');
@@ -100,22 +119,46 @@ export const SubscriptionScreen: React.FC = () => {
     }
   };
 
-  const isTrial = subscription?.status === 'FREE_TRIAL';
+  const handleLogout = async () => {
+    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Sign Out',
+        style: 'destructive',
+        onPress: async () => {
+          await logout();
+        },
+      },
+    ]);
+  };
+
+  const isTrial = subscription?.status === 'FREE_TRIAL' && !isGateMode;
   const isActive = subscription?.status === 'ACTIVE';
-  const isExpired = subscription?.status === 'EXPIRED';
+  const isExpired = subscription?.status === 'EXPIRED' || isGateMode;
 
   const planPrice = plan?.price ?? (isAdmin ? 299 : 99);
-  const planName = plan?.name ?? (isAdmin ? 'ADMIN PLAN' : 'USER PLAN');
+  const planRoleLabel = isAdmin ? 'ENTERPRISE ADMIN' : 'SALES AGENT WORKSPACE';
+  const planTitle = isAdmin ? 'Admin Master Plan' : 'Agent Pro Plan';
 
   return (
-    <View style={styles.container}>
-      <AmbientBackground />
+    <AmbientBackground>
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <MeqHeader
-          title="Subscription & Plan"
+          title={isGateMode ? 'Subscription Required' : 'Subscription & Plan'}
           subtitle={isAdmin ? 'Administrator Portal' : 'Sales Agent Workspace'}
-          showBack
-          onBackPress={() => navigation.goBack()}
+          onBack={isGateMode ? undefined : () => navigation.goBack()}
+          rightElement={
+            isGateMode ? (
+              <TouchableOpacity
+                onPress={handleLogout}
+                style={styles.headerLogoutBtn}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="log-out-outline" size={18} color="#EF4444" />
+                <Text style={styles.headerLogoutText}>Sign Out</Text>
+              </TouchableOpacity>
+            ) : undefined
+          }
         />
 
         {loading ? (
@@ -150,7 +193,7 @@ export const SubscriptionScreen: React.FC = () => {
                         ? 'checkmark-circle'
                         : isTrial
                         ? 'timer-outline'
-                        : 'alert-circle-outline'
+                        : 'lock-closed'
                     }
                     size={22}
                     color="#FFFFFF"
@@ -160,9 +203,7 @@ export const SubscriptionScreen: React.FC = () => {
                       ? 'ACTIVE SUBSCRIPTION'
                       : isTrial
                       ? '7-DAY FREE TRIAL'
-                      : isExpired
-                      ? 'SUBSCRIPTION EXPIRED'
-                      : 'NO ACTIVE PLAN'}
+                      : 'SUBSCRIPTION REQUIRED'}
                   </Text>
                 </View>
                 <View style={styles.roleChip}>
@@ -174,12 +215,10 @@ export const SubscriptionScreen: React.FC = () => {
 
               <Text style={styles.statusSubtitle}>
                 {isActive
-                  ? `Your subscription is active and renewed.`
+                  ? `Your subscription is active and in good standing.`
                   : isTrial
                   ? `You have ${subscription?.daysRemaining ?? 7} day(s) remaining in your free trial.`
-                  : isExpired
-                  ? `Your trial period has ended. Subscribe below to continue.`
-                  : `Get started with full cloud CRM access.`}
+                  : `Your free trial/subscription has ended. Subscribe below to continue using the CRM.`}
               </Text>
 
               {subscription?.currentPeriodEnd && isActive && (
@@ -197,12 +236,8 @@ export const SubscriptionScreen: React.FC = () => {
             <View style={styles.planCard}>
               <View style={styles.planHeader}>
                 <View>
-                  <Text style={styles.planTargetLabel}>
-                    {isAdmin ? 'ENTERPRISE ADMIN' : 'SALES AGENT WORKSPACE'}
-                  </Text>
-                  <Text style={styles.planNameText}>
-                    {isAdmin ? 'Admin Master Plan' : 'Agent Pro Plan'}
-                  </Text>
+                  <Text style={styles.planTargetLabel}>{planRoleLabel}</Text>
+                  <Text style={styles.planNameText}>{planTitle}</Text>
                 </View>
                 <View style={styles.priceTag}>
                   <Text style={styles.currencySymbol}>₹</Text>
@@ -247,8 +282,8 @@ export const SubscriptionScreen: React.FC = () => {
               <Button
                 title={
                   isActive
-                    ? 'Renew / Extend Subscription (₹' + planPrice + ')'
-                    : 'Subscribe via Razorpay (₹' + planPrice + '/mo)'
+                    ? `Renew / Extend Subscription (₹${planPrice}/mo)`
+                    : `Subscribe via Razorpay (₹${planPrice}/mo)`
                 }
                 onPress={handleSubscribe}
                 loading={subscribing}
@@ -282,15 +317,11 @@ export const SubscriptionScreen: React.FC = () => {
           </ScrollView>
         )}
       </SafeAreaView>
-    </View>
+    </AmbientBackground>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
   safeArea: {
     flex: 1,
   },
@@ -307,6 +338,20 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: spacing.md,
     paddingTop: spacing.sm,
+  },
+  headerLogoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+  },
+  headerLogoutText: {
+    color: '#EF4444',
+    fontSize: 12,
+    fontWeight: '700',
   },
   statusCard: {
     borderRadius: 16,

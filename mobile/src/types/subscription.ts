@@ -1,3 +1,10 @@
+export type SubscriptionStatusType =
+  | 'FREE_TRIAL'
+  | 'ACTIVE'
+  | 'EXPIRED'
+  | 'CANCELLED'
+  | 'NONE';
+
 export interface SubscriptionPlan {
   id: number;
   name: string;
@@ -16,7 +23,7 @@ export interface Subscription {
   userEmail: string;
   userRole: string;
   plan: SubscriptionPlan;
-  status: 'FREE_TRIAL' | 'ACTIVE' | 'EXPIRED' | 'CANCELLED' | 'NONE';
+  status: SubscriptionStatusType;
   trialStartAt?: string;
   trialEndAt?: string;
   currentPeriodStart?: string;

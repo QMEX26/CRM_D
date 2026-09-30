@@ -24,7 +24,7 @@ public class SubscriptionController {
 
     private final SubscriptionService subscriptionService;
 
-    @GetMapping("/my")
+    @GetMapping({"/my", "/status"})
     public ResponseEntity<ApiResponse<SubscriptionResponse>> getMySubscription(@CurrentUser UserPrincipal principal) {
         SubscriptionResponse response = subscriptionService.getSubscriptionForUser(principal.getId());
         return ResponseEntity.ok(ApiResponse.ok("Subscription retrieved successfully", response));

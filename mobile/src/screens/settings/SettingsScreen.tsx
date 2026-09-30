@@ -20,6 +20,7 @@ import { Input } from '../../components/common/Input';
 import { Button } from '../../components/common/Button';
 import { AmbientBackground } from '../../components/common/AmbientBackground';
 import { useAuth } from '../../context/AuthContext';
+import { useSubscription } from '../../context/SubscriptionContext';
 import { authApi } from '../../api/authApi';
 import { shiftApi } from '../../api/shiftApi';
 import { ShiftChangeRequest, ShiftOption } from '../../types';
@@ -28,6 +29,7 @@ export const SettingsScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const { user, logout, isAdmin, refreshProfile } = useAuth();
+  const { isTrialActive, isSubscriptionActive, isSubscriptionExpired, daysRemaining } = useSubscription();
 
   // Account & Profile edit state
   const [showAccountProfile, setShowAccountProfile] = useState(false);
@@ -245,11 +247,17 @@ export const SettingsScreen: React.FC = () => {
             activeOpacity={0.7}
             onPress={() => navigation.navigate('Subscription')}
           >
-            <IconTile name="card" variant="gold" size={38} iconSize={18} />
+            <IconTile name="card" variant="orange" size={38} iconSize={18} />
             <View style={styles.menuInfo}>
               <Text style={styles.menuTitle}>Subscription & Plan</Text>
               <Text style={styles.menuSubtitle}>
-                {isAdmin ? 'Admin Plan (₹299/mo)' : 'Agent Plan (₹99/mo)'} • Free Trial
+                {isSubscriptionActive
+                  ? `${isAdmin ? 'Admin Plan (₹299/mo)' : 'Agent Plan (₹99/mo)'} • Active`
+                  : isTrialActive
+                  ? `Free Trial • ${daysRemaining} day(s) remaining`
+                  : isSubscriptionExpired
+                  ? 'Subscription Expired • Subscribe to continue'
+                  : `${isAdmin ? 'Admin Plan (₹299/mo)' : 'Agent Plan (₹99/mo)'}`}
               </Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
