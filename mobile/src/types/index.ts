@@ -501,7 +501,10 @@ export type RootStackParamList = {
   Settings: undefined;
   Notifications: undefined;
   Analytics: undefined;
+  Subscription: undefined;
 };
+
+export * from './subscription';
 
 export type MainTabParamList = {
   // Common / Role specific

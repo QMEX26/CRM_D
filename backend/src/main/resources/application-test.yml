@@ -24,3 +24,10 @@ firebase:
   project-id: callingcrm-d-472b1
   web-api-key: AIzaSyB1gM9Oklmrm9IZUwb7kM34Y8Dzk_I4NX0
   credentials-file: ""
+
+razorpay:
+  key:
+    id: rzp_test_placeholder
+    secret: rzp_secret_test_key_12345
+  webhook:
+    secret: rzp_webhook_test_secret_12345

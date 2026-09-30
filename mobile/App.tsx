@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { AuthProvider } from './src/context/AuthContext';
 import { ToastProvider } from './src/context/ToastContext';
 import { AttendanceProvider } from './src/context/AttendanceContext';
+import { SubscriptionProvider } from './src/context/SubscriptionContext';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { EmergencyCheckInModal } from './src/components/attendance/EmergencyCheckInModal';
 
@@ -12,12 +13,14 @@ export default function App() {
     <SafeAreaProvider>
       <StatusBar style="dark" />
       <AuthProvider>
-        <ToastProvider>
-          <AttendanceProvider>
-            <EmergencyCheckInModal />
-            <AppNavigator />
-          </AttendanceProvider>
-        </ToastProvider>
+        <SubscriptionProvider>
+          <ToastProvider>
+            <AttendanceProvider>
+              <EmergencyCheckInModal />
+              <AppNavigator />
+            </AttendanceProvider>
+          </ToastProvider>
+        </SubscriptionProvider>
       </AuthProvider>
     </SafeAreaProvider>
   );

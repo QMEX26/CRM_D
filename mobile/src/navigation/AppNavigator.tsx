@@ -23,6 +23,7 @@ import { AuditLogsScreen } from '../screens/admin/AuditLogsScreen';
 import { GoogleSheetsScreen } from '../screens/admin/GoogleSheetsScreen';
 import { FollowUpsScreen } from '../screens/followups/FollowUpsScreen';
 import { SettingsScreen } from '../screens/settings/SettingsScreen';
+import { SubscriptionScreen } from '../screens/settings/SubscriptionScreen';
 import { AnalyticsScreen } from '../screens/analytics/AnalyticsScreen';
 import { AdminNotificationsScreen } from '../screens/admin/AdminNotificationsScreen';
 import { UserNotificationsScreen } from '../screens/home/UserNotificationsScreen';
@@ -158,6 +159,11 @@ export const AppNavigator: React.FC = () => {
         <Stack.Screen
           name="Notifications"
           component={NotificationsRouterScreen}
+          options={{ animation: 'slide_from_right' }}
+        />
+        <Stack.Screen
+          name="Subscription"
+          component={SubscriptionScreen}
           options={{ animation: 'slide_from_right' }}
         />
       </Stack.Navigator>

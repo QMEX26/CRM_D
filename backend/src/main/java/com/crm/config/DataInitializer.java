@@ -31,11 +31,37 @@ public class DataInitializer implements CommandLineRunner {
     private final SalesRepository salesRepository;
     private final PasswordEncoder passwordEncoder;
     private final com.crm.service.FirebaseAuthService firebaseAuthService;
+    private final com.crm.repository.SubscriptionPlanRepository subscriptionPlanRepository;
 
     @Override
     @Transactional
     public void run(String... args) {
         logger.info("Checking baseline system data initialization...");
+
+        // 0. Initialize Subscription Plans
+        subscriptionPlanRepository.findByName("ADMIN_MONTHLY").orElseGet(() ->
+                subscriptionPlanRepository.save(SubscriptionPlan.builder()
+                        .name("ADMIN_MONTHLY")
+                        .targetRole("ROLE_ADMIN")
+                        .price(new BigDecimal("299.00"))
+                        .currency("INR")
+                        .billingCycle("MONTHLY")
+                        .trialDays(7)
+                        .active(true)
+                        .build())
+        );
+
+        subscriptionPlanRepository.findByName("USER_MONTHLY").orElseGet(() ->
+                subscriptionPlanRepository.save(SubscriptionPlan.builder()
+                        .name("USER_MONTHLY")
+                        .targetRole("ROLE_USER")
+                        .price(new BigDecimal("99.00"))
+                        .currency("INR")
+                        .billingCycle("MONTHLY")
+                        .trialDays(7)
+                        .active(true)
+                        .build())
+        );
 
         // 1. Initialize Roles
         Role adminRole = roleRepository.findByName("ROLE_ADMIN")

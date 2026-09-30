@@ -239,6 +239,24 @@ export const SettingsScreen: React.FC = () => {
 
         {/* Settings Navigation Menu Card */}
         <View style={styles.menuCard}>
+          {/* Subscription & Plan */}
+          <TouchableOpacity
+            style={styles.menuItem}
+            activeOpacity={0.7}
+            onPress={() => navigation.navigate('Subscription')}
+          >
+            <IconTile name="card" variant="gold" size={38} iconSize={18} />
+            <View style={styles.menuInfo}>
+              <Text style={styles.menuTitle}>Subscription & Plan</Text>
+              <Text style={styles.menuSubtitle}>
+                {isAdmin ? 'Admin Plan (₹299/mo)' : 'Agent Plan (₹99/mo)'} • Free Trial
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+          </TouchableOpacity>
+
+          <View style={styles.menuDivider} />
+
           {/* 1. Account & Profile (With Edit Form) */}
           <TouchableOpacity
             style={styles.menuItem}
