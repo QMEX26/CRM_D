@@ -12,17 +12,17 @@ export const subscriptionApi = {
    */
   getMySubscription: async (): Promise<Subscription> => {
     const response = await apiClient.get<{ success: boolean; data: Subscription }>(
-      '/api/v1/subscription/my'
+      '/subscription/my'
     );
     return response.data.data;
   },
 
   /**
-   * Alias for getMySubscription (/api/v1/subscription/status)
+   * Alias for getMySubscription (/subscription/status)
    */
   getStatus: async (): Promise<Subscription> => {
     const response = await apiClient.get<{ success: boolean; data: Subscription }>(
-      '/api/v1/subscription/status'
+      '/subscription/status'
     );
     return response.data.data;
   },
@@ -32,7 +32,7 @@ export const subscriptionApi = {
    */
   getPlans: async (): Promise<SubscriptionPlan[]> => {
     const response = await apiClient.get<{ success: boolean; data: SubscriptionPlan[] }>(
-      '/api/v1/subscription/plans'
+      '/subscription/plans'
     );
     return response.data.data;
   },
@@ -42,7 +42,7 @@ export const subscriptionApi = {
    */
   getMyPlan: async (): Promise<SubscriptionPlan> => {
     const response = await apiClient.get<{ success: boolean; data: SubscriptionPlan }>(
-      '/api/v1/subscription/plan'
+      '/subscription/plan'
     );
     return response.data.data;
   },
@@ -52,7 +52,7 @@ export const subscriptionApi = {
    */
   createOrder: async (planId?: number): Promise<RazorpayOrderResponse> => {
     const response = await apiClient.post<{ success: boolean; data: RazorpayOrderResponse }>(
-      '/api/v1/subscription/create-order',
+      '/subscription/create-order',
       { planId }
     );
     return response.data.data;
@@ -63,7 +63,7 @@ export const subscriptionApi = {
    */
   verifyPayment: async (payload: VerifyPaymentRequest): Promise<Subscription> => {
     const response = await apiClient.post<{ success: boolean; data: Subscription }>(
-      '/api/v1/subscription/verify-payment',
+      '/subscription/verify-payment',
       payload
     );
     return response.data.data;
@@ -74,7 +74,7 @@ export const subscriptionApi = {
    */
   cancelSubscription: async (): Promise<Subscription> => {
     const response = await apiClient.post<{ success: boolean; data: Subscription }>(
-      '/api/v1/subscription/cancel'
+      '/subscription/cancel'
     );
     return response.data.data;
   },

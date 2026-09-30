@@ -361,12 +361,15 @@ public class SubscriptionServiceImpl implements SubscriptionService {
 
         if (isTrial && subscription.getTrialEndAt() != null) {
             if (subscription.getTrialEndAt().isAfter(now)) {
-                daysRemaining = ChronoUnit.DAYS.between(now, subscription.getTrialEndAt());
-                if (daysRemaining == 0) daysRemaining = 1; // within final 24 hours
+                long seconds = ChronoUnit.SECONDS.between(now, subscription.getTrialEndAt());
+                daysRemaining = (long) Math.ceil(seconds / 86400.0);
+                if (daysRemaining <= 0) daysRemaining = 1;
             }
         } else if (isActive && subscription.getCurrentPeriodEnd() != null) {
             if (subscription.getCurrentPeriodEnd().isAfter(now)) {
-                daysRemaining = ChronoUnit.DAYS.between(now, subscription.getCurrentPeriodEnd());
+                long seconds = ChronoUnit.SECONDS.between(now, subscription.getCurrentPeriodEnd());
+                daysRemaining = (long) Math.ceil(seconds / 86400.0);
+                if (daysRemaining <= 0) daysRemaining = 1;
             }
         }
 
