@@ -12,6 +12,8 @@ export const dashboardApi = {
     const data = res.data.data;
     return {
       ...data,
+      totalUsers: data?.totalUsers ?? data?.activeUsers ?? data?.activeAgents ?? 0,
+      activeUsers: data?.activeUsers ?? data?.totalUsers ?? data?.activeAgents ?? 0,
       activeAgents: data?.activeAgents ?? data?.activeUsers ?? 0,
     };
   },
