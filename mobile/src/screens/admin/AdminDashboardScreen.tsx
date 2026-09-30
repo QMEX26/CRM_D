@@ -171,7 +171,7 @@ export const AdminDashboardScreen: React.FC = () => {
           />
           <StatCard
             label="Users"
-            value={summary?.totalUsers ?? summary?.activeUsers ?? summary?.activeAgents ?? 0}
+            value={summary?.activeUsers ?? summary?.acceptedUsers ?? 0}
             iconName="people"
             iconVariant="purple"
             delay={250}

@@ -340,6 +340,7 @@ export interface AdminDashboardSummary {
   activeAgents: number;
   totalUsers?: number;
   activeUsers?: number;
+  acceptedUsers?: number;
   totalCalls: number;
   callsToday: number;
   connectedCalls: number;
