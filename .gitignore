@@ -11,3 +11,4 @@ firebase-service-account*.json
 # Build & OS
 .DS_Store
 Thumbs.db
+mobile/CallingCRM.apk 
