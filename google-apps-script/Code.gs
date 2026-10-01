@@ -23,7 +23,7 @@
 // Configuration
 var CONFIG = {
   // Live Public Backend URL for Google Sheets cloud integration
-  DEFAULT_BACKEND_URL: "https://94fd55c931c4a1.lhr.life",
+  DEFAULT_BACKEND_URL: "https://a25f1f16138272.lhr.life",
   
   // Shared secret for admin authentication with Spring Boot
   DEFAULT_SECRET: "AKfycbyOg6Lq8pJKMPkQoVgE__cUwIMvXa0YmHTihK4iHDBsgWY6kMRzKEBXPRmpbQX53CN9",

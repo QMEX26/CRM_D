@@ -40,8 +40,12 @@ public class DataInitializer implements CommandLineRunner {
         logger.info("Checking baseline system data initialization...");
 
         // 0. Initialize Subscription Plans
-        subscriptionPlanRepository.findByName("ADMIN_MONTHLY").orElseGet(() ->
-                subscriptionPlanRepository.save(SubscriptionPlan.builder()
+        subscriptionPlanRepository.findByName("ADMIN_MONTHLY").ifPresentOrElse(
+                plan -> {
+                    plan.setPrice(new BigDecimal("299.00"));
+                    subscriptionPlanRepository.save(plan);
+                },
+                () -> subscriptionPlanRepository.save(SubscriptionPlan.builder()
                         .name("ADMIN_MONTHLY")
                         .targetRole("ROLE_ADMIN")
                         .price(new BigDecimal("299.00"))
@@ -52,8 +56,12 @@ public class DataInitializer implements CommandLineRunner {
                         .build())
         );
 
-        subscriptionPlanRepository.findByName("USER_MONTHLY").orElseGet(() ->
-                subscriptionPlanRepository.save(SubscriptionPlan.builder()
+        subscriptionPlanRepository.findByName("USER_MONTHLY").ifPresentOrElse(
+                plan -> {
+                    plan.setPrice(new BigDecimal("99.00"));
+                    subscriptionPlanRepository.save(plan);
+                },
+                () -> subscriptionPlanRepository.save(SubscriptionPlan.builder()
                         .name("USER_MONTHLY")
                         .targetRole("ROLE_USER")
                         .price(new BigDecimal("99.00"))

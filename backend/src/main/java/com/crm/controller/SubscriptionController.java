@@ -24,25 +24,25 @@ public class SubscriptionController {
 
     private final SubscriptionService subscriptionService;
 
-    @GetMapping({"/my", "/status"})
+    @GetMapping({"/my", "/status", "/my-subscription"})
     public ResponseEntity<ApiResponse<SubscriptionResponse>> getMySubscription(@CurrentUser UserPrincipal principal) {
         SubscriptionResponse response = subscriptionService.getSubscriptionForUser(principal.getId());
         return ResponseEntity.ok(ApiResponse.ok("Subscription retrieved successfully", response));
     }
 
-    @GetMapping("/plans")
+    @GetMapping({"/plans", "/all-plans"})
     public ResponseEntity<ApiResponse<List<SubscriptionPlanResponse>>> getActivePlans() {
         List<SubscriptionPlanResponse> plans = subscriptionService.getActivePlans();
         return ResponseEntity.ok(ApiResponse.ok("Active plans retrieved successfully", plans));
     }
 
-    @GetMapping("/plan")
+    @GetMapping({"/plan", "/my-plan"})
     public ResponseEntity<ApiResponse<SubscriptionPlanResponse>> getMyPlan(@CurrentUser UserPrincipal principal) {
         SubscriptionPlanResponse plan = subscriptionService.getPlanForUser(principal.getId());
         return ResponseEntity.ok(ApiResponse.ok("Applicable plan retrieved successfully", plan));
     }
 
-    @PostMapping("/create-order")
+    @PostMapping({"/create-order", "/order"})
     public ResponseEntity<ApiResponse<RazorpayOrderResponse>> createOrder(
             @CurrentUser UserPrincipal principal,
             @RequestBody(required = false) CreateSubscriptionOrderRequest request) {
@@ -53,7 +53,7 @@ public class SubscriptionController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok("Razorpay order created successfully", order));
     }
 
-    @PostMapping("/verify-payment")
+    @PostMapping({"/verify-payment", "/verify"})
     public ResponseEntity<ApiResponse<SubscriptionResponse>> verifyPayment(
             @CurrentUser UserPrincipal principal,
             @Valid @RequestBody VerifyPaymentRequest request) {

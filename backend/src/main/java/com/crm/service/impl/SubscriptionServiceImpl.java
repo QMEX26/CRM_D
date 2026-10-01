@@ -50,6 +50,61 @@ public class SubscriptionServiceImpl implements SubscriptionService {
 
         Subscription subscription = subscriptionRepository.findByUserId(userId).orElse(null);
 
+        // Auto-reconcile any pending Razorpay payments for interrupted/dropped network flows
+        List<SubscriptionPayment> recentPayments = subscriptionPaymentRepository.findByUserIdOrderByCreatedAtDesc(userId);
+        if (recentPayments != null && !recentPayments.isEmpty()) {
+            for (SubscriptionPayment pending : recentPayments) {
+                if (pending.getStatus() == PaymentStatus.CREATED && pending.getCreatedAt() != null &&
+                        pending.getCreatedAt().isAfter(LocalDateTime.now().minusHours(24))) {
+                    try {
+                        Map<String, Object> rzpPayment = razorpayService.fetchOrderPayment(pending.getRazorpayOrderId());
+                        if (rzpPayment != null && rzpPayment.containsKey("status")) {
+                            String rzpStatus = (String) rzpPayment.get("status");
+                            if ("captured".equalsIgnoreCase(rzpStatus) || "authorized".equalsIgnoreCase(rzpStatus)) {
+                                String rzpPaymentId = (String) rzpPayment.get("paymentId");
+                                log.info("[RAZORPAY PAYMENT STATUS]\nstatus={}", rzpStatus);
+
+                                pending.setRazorpayPaymentId(rzpPaymentId);
+                                pending.setStatus(PaymentStatus.SUCCESS);
+                                pending.setPaidAt(LocalDateTime.now());
+                                subscriptionPaymentRepository.save(pending);
+
+                                LocalDateTime now = LocalDateTime.now();
+                                if (subscription == null) {
+                                    subscription = Subscription.builder()
+                                            .user(user)
+                                            .plan(pending.getPlan())
+                                            .status(SubscriptionStatus.ACTIVE)
+                                            .currentPeriodStart(now)
+                                            .currentPeriodEnd(now.plusMonths(1))
+                                            .build();
+                                } else {
+                                    subscription.setPlan(pending.getPlan());
+                                    subscription.setStatus(SubscriptionStatus.ACTIVE);
+                                    subscription.setCurrentPeriodStart(now);
+                                    if (subscription.getCurrentPeriodEnd() != null && subscription.getCurrentPeriodEnd().isAfter(now)) {
+                                        subscription.setCurrentPeriodEnd(subscription.getCurrentPeriodEnd().plusMonths(1));
+                                    } else {
+                                        subscription.setCurrentPeriodEnd(now.plusMonths(1));
+                                    }
+                                }
+                                subscription = subscriptionRepository.save(subscription);
+                                pending.setSubscription(subscription);
+                                subscriptionPaymentRepository.save(pending);
+
+                                log.info("[SUBSCRIPTION ACTIVATION]\nuserId={}\nsubscriptionId={}\nstartDate={}\nendDate={}",
+                                        userId, subscription.getId(), subscription.getCurrentPeriodStart(), subscription.getCurrentPeriodEnd());
+                                log.info("[REVENUE UPDATE]\npaymentId={}\namount={}", rzpPaymentId, pending.getAmount());
+                                break;
+                            }
+                        }
+                    } catch (Exception e) {
+                        log.debug("Auto-reconciliation check for order {}: {}", pending.getRazorpayOrderId(), e.getMessage());
+                    }
+                }
+            }
+        }
+
         // If no subscription record exists for this user, dynamically provide plan info with null or inactive state
         if (subscription == null) {
             SubscriptionPlan plan = resolvePlanForUser(user);
@@ -122,6 +177,9 @@ public class SubscriptionServiceImpl implements SubscriptionService {
 
         String orderId = razorpayService.createOrder(amountInPaise, plan.getCurrency(), receipt, notes);
 
+        log.info("[RAZORPAY ORDER CREATED]\nuserId={}\norderId={}\namount={}",
+                userId, orderId, plan.getPrice());
+
         Subscription subscription = subscriptionRepository.findByUserId(userId).orElse(null);
 
         SubscriptionPayment payment = SubscriptionPayment.builder()
@@ -156,21 +214,28 @@ public class SubscriptionServiceImpl implements SubscriptionService {
     @Override
     @Transactional
     public SubscriptionResponse verifyPayment(Long userId, VerifyPaymentRequest request) {
+        log.info("[RAZORPAY PAYMENT CALLBACK]\nuserId={}\norderId={}\npaymentId={}",
+                userId, request.getRazorpayOrderId(), request.getRazorpayPaymentId());
+
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
 
         SubscriptionPayment payment = subscriptionPaymentRepository.findFirstByRazorpayOrderIdOrderByCreatedAtDesc(request.getRazorpayOrderId())
-                .orElseThrow(() -> new ResourceNotFoundException("Payment record not found for order: " + request.getRazorpayOrderId()));
+                .orElseThrow(() -> {
+                    log.error("[PAYMENT ERROR]\nPayment record not found for order: {}", request.getRazorpayOrderId());
+                    return new ResourceNotFoundException("Payment record not found for order: " + request.getRazorpayOrderId());
+                });
 
         if (!payment.getUser().getId().equals(userId)) {
+            log.error("[PAYMENT ERROR]\nOrder userId mismatch. Expected: {}, Actual: {}", payment.getUser().getId(), userId);
             throw new BusinessException("Payment order does not belong to the authenticated user");
         }
 
-        // Idempotency: If this payment was already verified successfully, return active subscription without duplicate charge
+        // Idempotency: If this payment was already verified successfully, return active subscription without duplicate revenue
         if (payment.getStatus() == PaymentStatus.SUCCESS &&
             request.getRazorpayPaymentId() != null &&
             request.getRazorpayPaymentId().equals(payment.getRazorpayPaymentId())) {
-            log.info("Payment order {} already verified with payment ID {}. Returning existing subscription.",
+            log.info("Payment order {} already verified with payment ID {}. Idempotent return.",
                     request.getRazorpayOrderId(), request.getRazorpayPaymentId());
             Subscription existingSub = subscriptionRepository.findByUserId(userId)
                     .orElseThrow(() -> new ResourceNotFoundException("Subscription not found for user: " + userId));
@@ -184,12 +249,26 @@ public class SubscriptionServiceImpl implements SubscriptionService {
                 request.getRazorpaySignature()
         );
 
+        log.info("[RAZORPAY SIGNATURE VERIFICATION]\nresult={}", isValid ? "SUCCESS" : "FAILED");
+
+        // If signature fails, check Razorpay direct API as safety fallback before rejecting
+        if (!isValid) {
+            Map<String, Object> rzpPayment = razorpayService.fetchOrderPayment(request.getRazorpayOrderId());
+            if (rzpPayment != null && ("captured".equalsIgnoreCase((String) rzpPayment.get("status")) || "authorized".equalsIgnoreCase((String) rzpPayment.get("status")))) {
+                log.info("[RAZORPAY PAYMENT STATUS]\nstatus={} (Verified via Razorpay API)", rzpPayment.get("status"));
+                isValid = true;
+            }
+        }
+
         if (!isValid) {
             payment.setStatus(PaymentStatus.FAILED);
             payment.setFailureReason("Invalid Razorpay payment signature");
             subscriptionPaymentRepository.save(payment);
+            log.error("[PAYMENT ERROR]\nPayment verification failed: Signature mismatch for order: {}", request.getRazorpayOrderId());
             throw new BusinessException("Payment verification failed: Invalid signature");
         }
+
+        log.info("[RAZORPAY PAYMENT STATUS]\nstatus=SUCCESS/CAPTURED");
 
         LocalDateTime now = LocalDateTime.now();
 
@@ -225,6 +304,11 @@ public class SubscriptionServiceImpl implements SubscriptionService {
         Subscription savedSubscription = subscriptionRepository.save(subscription);
         payment.setSubscription(savedSubscription);
         subscriptionPaymentRepository.save(payment);
+
+        log.info("[SUBSCRIPTION ACTIVATION]\nuserId={}\nsubscriptionId={}\nstartDate={}\nendDate={}",
+                userId, savedSubscription.getId(), savedSubscription.getCurrentPeriodStart(), savedSubscription.getCurrentPeriodEnd());
+        log.info("[REVENUE UPDATE]\npaymentId={}\namount={}",
+                request.getRazorpayPaymentId(), payment.getAmount());
 
         auditService.logAction(userId, "Subscription", savedSubscription.getId(), "ACTIVATE_SUBSCRIPTION", null,
                 "Plan: " + savedSubscription.getPlan().getName() + ", PaymentId: " + request.getRazorpayPaymentId() +

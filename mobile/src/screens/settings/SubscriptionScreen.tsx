@@ -135,9 +135,9 @@ export const SubscriptionScreen: React.FC<SubscriptionScreenProps> = ({ isGateMo
     ]);
   };
 
-  const isTrial = subscription?.status === 'FREE_TRIAL' && !isGateMode;
-  const isActive = subscription?.status === 'ACTIVE';
-  const isExpired = subscription?.status === 'EXPIRED' || isGateMode;
+  const isActive = subscription?.status === 'ACTIVE' && subscription?.isActive !== false;
+  const isTrial = !isActive && subscription?.status === 'FREE_TRIAL' && (subscription?.isTrial || (subscription?.daysRemaining ?? 0) > 0);
+  const isExpired = subscription?.status === 'EXPIRED' || (!isActive && !isTrial);
 
   const planPrice = plan?.price ?? (isAdmin ? 299 : 99);
   const planRoleLabel = isAdmin ? 'ENTERPRISE ADMIN' : 'SALES AGENT WORKSPACE';

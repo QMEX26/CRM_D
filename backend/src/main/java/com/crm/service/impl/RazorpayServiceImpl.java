@@ -148,6 +148,74 @@ public class RazorpayServiceImpl implements RazorpayService {
         return keyId != null ? keyId : "";
     }
 
+    @Override
+    public Map<String, Object> fetchOrderPayment(String orderId) {
+        if (orderId == null || orderId.isBlank() || keyId == null || keyId.isBlank() || keySecret == null || keySecret.isBlank() || keyId.startsWith("YOUR_")) {
+            return null;
+        }
+
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setBasicAuth(keyId.trim(), keySecret.trim());
+            HttpEntity<Void> entity = new HttpEntity<>(headers);
+
+            String url = RAZORPAY_ORDERS_URL + "/" + orderId.trim() + "/payments";
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
+
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                JsonNode root = objectMapper.readTree(response.getBody());
+                JsonNode items = root.path("items");
+                if (items.isArray() && items.size() > 0) {
+                    for (JsonNode payment : items) {
+                        String status = payment.path("status").asText("");
+                        if ("captured".equalsIgnoreCase(status) || "authorized".equalsIgnoreCase(status)) {
+                            Map<String, Object> res = new HashMap<>();
+                            res.put("paymentId", payment.path("id").asText(""));
+                            res.put("status", status);
+                            res.put("amount", payment.path("amount").asLong(0));
+                            res.put("currency", payment.path("currency").asText("INR"));
+                            res.put("orderId", payment.path("order_id").asText(orderId));
+                            return res;
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Could not fetch order payment status from Razorpay for order {}: {}", orderId, e.getMessage());
+        }
+        return null;
+    }
+
+    @Override
+    public Map<String, Object> getPaymentDetails(String paymentId) {
+        if (paymentId == null || paymentId.isBlank() || keyId == null || keyId.isBlank() || keySecret == null || keySecret.isBlank() || keyId.startsWith("YOUR_")) {
+            return null;
+        }
+
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setBasicAuth(keyId.trim(), keySecret.trim());
+            HttpEntity<Void> entity = new HttpEntity<>(headers);
+
+            String url = "https://api.razorpay.com/v1/payments/" + paymentId.trim();
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
+
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                JsonNode payment = objectMapper.readTree(response.getBody());
+                Map<String, Object> res = new HashMap<>();
+                res.put("paymentId", payment.path("id").asText(""));
+                res.put("status", payment.path("status").asText(""));
+                res.put("amount", payment.path("amount").asLong(0));
+                res.put("currency", payment.path("currency").asText("INR"));
+                res.put("orderId", payment.path("order_id").asText(""));
+                return res;
+            }
+        } catch (Exception e) {
+            log.warn("Could not fetch payment details from Razorpay for payment {}: {}", paymentId, e.getMessage());
+        }
+        return null;
+    }
+
     private String calculateHmacSha256(String data, String secret) throws Exception {
         Mac mac = Mac.getInstance(HMAC_SHA256_ALGORITHM);
         SecretKeySpec secretKey = new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), HMAC_SHA256_ALGORITHM);

@@ -172,7 +172,7 @@ export const RazorpayCheckoutModal: React.FC<RazorpayCheckoutModalProps> = ({
 
           var options = {
             key: "${order.keyId}",
-            amount: "${order.amountInPaise}",
+            amount: ${Number(order.amountInPaise)},
             currency: "${order.currency || 'INR'}",
             name: "Calling CRM",
             description: "${order.planName || 'CRM Plan'}",

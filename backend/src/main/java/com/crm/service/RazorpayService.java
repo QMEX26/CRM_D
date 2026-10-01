@@ -1,6 +1,5 @@
 package com.crm.service;
 
-import java.math.BigDecimal;
 import java.util.Map;
 
 public interface RazorpayService {
@@ -8,4 +7,7 @@ public interface RazorpayService {
     boolean verifyPaymentSignature(String orderId, String paymentId, String signature);
     boolean verifyWebhookSignature(String requestBody, String signature);
     String getKeyId();
+    Map<String, Object> fetchOrderPayment(String orderId);
+    Map<String, Object> getPaymentDetails(String paymentId);
 }
+
