@@ -45,34 +45,34 @@ public class DataSourceConfig {
 
     private DataSource createDataSourceFromUrl(String rawUrl) throws Exception {
         HikariConfig config = new HikariConfig();
+        config.setDriverClassName("org.postgresql.Driver");
 
-        if (rawUrl.startsWith("jdbc:mysql:")) {
+        if (rawUrl.startsWith("jdbc:postgresql:") || rawUrl.startsWith("jdbc:")) {
             config.setJdbcUrl(rawUrl);
-            config.setDriverClassName("com.mysql.cj.jdbc.Driver");
             String username = System.getenv("DATABASE_USERNAME");
             if (!StringUtils.hasText(username)) username = System.getProperty("DATABASE_USERNAME");
             if (StringUtils.hasText(username)) config.setUsername(username);
             String password = System.getenv("DATABASE_PASSWORD");
             if (!StringUtils.hasText(password)) password = System.getProperty("DATABASE_PASSWORD");
             if (password != null) config.setPassword(password);
-        } else if (rawUrl.startsWith("jdbc:")) {
-            config.setJdbcUrl(rawUrl);
-            if (rawUrl.startsWith("jdbc:postgresql:")) {
-                config.setDriverClassName("org.postgresql.Driver");
-            }
         } else {
-            // e.g., postgres://user:password@host:port/dbname?sslmode=require
+            // e.g., postgresql://user:password@dpg-host:5432/crm_d_db or postgres://...
             URI uri = new URI(rawUrl);
             String userInfo = uri.getUserInfo();
             if (userInfo != null && userInfo.contains(":")) {
                 String[] parts = userInfo.split(":", 2);
                 config.setUsername(parts[0]);
                 config.setPassword(parts[1]);
+            } else {
+                String username = System.getenv("DATABASE_USERNAME");
+                if (StringUtils.hasText(username)) config.setUsername(username);
+                String password = System.getenv("DATABASE_PASSWORD");
+                if (password != null) config.setPassword(password);
             }
 
             String host = uri.getHost();
             int port = uri.getPort() > 0 ? uri.getPort() : 5432;
-            String path = uri.getPath(); // /dbname
+            String path = uri.getPath(); // /crm_d_db
             if (path.startsWith("/")) {
                 path = path.substring(1);
             }
@@ -81,18 +81,13 @@ public class DataSourceConfig {
             String query = uri.getQuery();
             if (StringUtils.hasText(query)) {
                 jdbcUrl += "?" + query;
-                if (!query.contains("sslmode=")) {
-                    jdbcUrl += "&sslmode=require";
-                }
-            } else {
-                jdbcUrl += "?sslmode=require";
             }
+
             if (!jdbcUrl.contains("reWriteBatchedInserts=")) {
                 jdbcUrl += (jdbcUrl.contains("?") ? "&" : "?") + "reWriteBatchedInserts=true";
             }
 
             config.setJdbcUrl(jdbcUrl);
-            config.setDriverClassName("org.postgresql.Driver");
         }
 
         config.setMaximumPoolSize(10);
