@@ -432,6 +432,7 @@ public class GoogleSheetsServiceImpl implements GoogleSheetsService {
             // Save log record
             GoogleSheetsSyncLog logEntry = GoogleSheetsSyncLog.builder()
                     .syncId(syncCode)
+                    .syncType("PULL")
                     .triggeredBy(admin)
                     .status("SUCCESS")
                     .recordsSynced(totalRecords)
@@ -494,6 +495,7 @@ public class GoogleSheetsServiceImpl implements GoogleSheetsService {
 
         GoogleSheetsSyncLog syncLog = GoogleSheetsSyncLog.builder()
                 .syncId(syncCode)
+                .syncType("PUSH")
                 .triggeredBy(admin)
                 .status("IN_PROGRESS")
                 .startedAt(LocalDateTime.now())
@@ -1900,6 +1902,7 @@ public class GoogleSheetsServiceImpl implements GoogleSheetsService {
 
         GoogleSheetsSyncLog syncLog = GoogleSheetsSyncLog.builder()
                 .syncId(syncCode)
+                .syncType("SYNC")
                 .triggeredBy(admin)
                 .status("IN_PROGRESS")
                 .startedAt(LocalDateTime.now())

@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: jdbc:h2:mem:crm_test_db;DB_CLOSE_DELAY=-1;MODE=MySQL;DATABASE_TO_LOWER=TRUE
+    url: jdbc:h2:mem:crm_test_db;DB_CLOSE_DELAY=-1;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE
     driver-class-name: org.h2.Driver
     username: sa
     password: ""
@@ -24,3 +24,10 @@ firebase:
   project-id: callingcrm-d-472b1
   web-api-key: AIzaSyB1gM9Oklmrm9IZUwb7kM34Y8Dzk_I4NX0
   credentials-file: ""
+
+razorpay:
+  key:
+    id: rzp_test_placeholder
+    secret: rzp_secret_test_key_12345
+  webhook:
+    secret: rzp_webhook_test_secret_12345

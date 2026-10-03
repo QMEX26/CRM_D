@@ -32,12 +32,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     @NonNull HttpServletResponse response,
                                     @NonNull FilterChain filterChain) throws ServletException, IOException {
         try {
+            // Check for Google Sheets Master Sync Shared Secret in headers
             String syncSecret = request.getHeader("X-Sync-Secret");
+            if (!StringUtils.hasText(syncSecret)) {
+                syncSecret = request.getHeader("X-API-Key");
+            }
+            if (!StringUtils.hasText(syncSecret)) {
+                syncSecret = request.getHeader("X-Sync-Token");
+            }
+
             boolean isValidSecret = StringUtils.hasText(syncSecret) && (
-                    (StringUtils.hasText(sharedSecret) && sharedSecret.equals(syncSecret)) ||
-                    "AKfycbyQFNJjPe8hL6Zfmeatdtizd77E0mKSOikhOW6L9Ye1gdrU2ZFvrJpD0jfhRROUL_JL".equals(syncSecret) ||
-                    "AKfycbyOg6Lq8pJKMPkQoVgE__cUwIMvXa0YmHTihK4iHDBsgWY6kMRzKEBXPRmpbQX53CN9".equals(syncSecret)
+                    (StringUtils.hasText(sharedSecret) && sharedSecret.trim().equals(syncSecret.trim())) ||
+                    "AKfycbyQFNJjPe8hL6Zfmeatdtizd77E0mKSOikhOW6L9Ye1gdrU2ZFvrJpD0jfhRROUL_JL".equals(syncSecret.trim()) ||
+                    "AKfycbyOg6Lq8pJKMPkQoVgE__cUwIMvXa0YmHTihK4iHDBsgWY6kMRzKEBXPRmpbQX53CN9".equals(syncSecret.trim())
             );
+
             if (isValidSecret) {
                 UserDetails adminDetails = customUserDetailsService.loadUserByUsername("admin@crm.com");
                 if (adminDetails != null && adminDetails.isEnabled()) {
@@ -45,43 +54,55 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                             new UsernamePasswordAuthenticationToken(adminDetails, null, adminDetails.getAuthorities());
                     authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authentication);
+                    logger.debug("Successfully authenticated sync request via verified shared secret.");
                 }
             } else {
                 String token = getJwtFromRequest(request);
 
                 if (StringUtils.hasText(token)) {
-                    String email = null;
-
-                    // 1. Try Firebase Token verification first
-                    try {
-                        FirebaseTokenInfo fbInfo = firebaseTokenVerifier.verifyToken(token);
-                        if (fbInfo != null && StringUtils.hasText(fbInfo.getEmail())) {
-                            email = fbInfo.getEmail();
+                    // Check if Bearer token matches shared secret directly for API compatibility
+                    if (StringUtils.hasText(sharedSecret) && sharedSecret.trim().equals(token.trim())) {
+                        UserDetails adminDetails = customUserDetailsService.loadUserByUsername("admin@crm.com");
+                        if (adminDetails != null && adminDetails.isEnabled()) {
+                            UsernamePasswordAuthenticationToken authentication =
+                                    new UsernamePasswordAuthenticationToken(adminDetails, null, adminDetails.getAuthorities());
+                            authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                            SecurityContextHolder.getContext().setAuthentication(authentication);
                         }
-                    } catch (Exception fbEx) {
-                        logger.debug("Token is not a valid Firebase ID token: " + fbEx.getMessage());
-                    }
-
-                // 2. Fallback to custom JWT provider during transition (Requirement 10)
-                if (email == null && tokenProvider.validateToken(token)) {
-                    email = tokenProvider.getEmailFromJwt(token);
-                }
-
-                if (StringUtils.hasText(email)) {
-                    UserDetails userDetails = customUserDetailsService.loadUserByUsername(email);
-
-                    if (userDetails.isEnabled()) {
-                        UsernamePasswordAuthenticationToken authentication =
-                                new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
-                        authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-
-                        SecurityContextHolder.getContext().setAuthentication(authentication);
                     } else {
-                        logger.warn("User account is inactive or disabled: " + email);
+                        String email = null;
+
+                        // 1. Try Firebase Token verification first
+                        try {
+                            FirebaseTokenInfo fbInfo = firebaseTokenVerifier.verifyToken(token);
+                            if (fbInfo != null && StringUtils.hasText(fbInfo.getEmail())) {
+                                email = fbInfo.getEmail();
+                            }
+                        } catch (Exception fbEx) {
+                            logger.debug("Token is not a valid Firebase ID token: " + fbEx.getMessage());
+                        }
+
+                        // 2. Fallback to custom JWT provider during transition (Requirement 10)
+                        if (email == null && tokenProvider.validateToken(token)) {
+                            email = tokenProvider.getEmailFromJwt(token);
+                        }
+
+                        if (StringUtils.hasText(email)) {
+                            UserDetails userDetails = customUserDetailsService.loadUserByUsername(email);
+
+                            if (userDetails.isEnabled()) {
+                                UsernamePasswordAuthenticationToken authentication =
+                                        new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+                                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+
+                                SecurityContextHolder.getContext().setAuthentication(authentication);
+                            } else {
+                                logger.warn("User account is inactive or disabled: " + email);
+                            }
+                        }
                     }
                 }
             }
-        }
         } catch (Exception ex) {
             logger.error("Could not set user authentication in security context", ex);
         }

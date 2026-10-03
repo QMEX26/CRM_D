@@ -31,11 +31,46 @@ public class DataInitializer implements CommandLineRunner {
     private final SalesRepository salesRepository;
     private final PasswordEncoder passwordEncoder;
     private final com.crm.service.FirebaseAuthService firebaseAuthService;
+    private final com.crm.repository.SubscriptionPlanRepository subscriptionPlanRepository;
+    private final com.crm.repository.SubscriptionRepository subscriptionRepository;
 
     @Override
     @Transactional
     public void run(String... args) {
         logger.info("Checking baseline system data initialization...");
+
+        // 0. Initialize Subscription Plans
+        subscriptionPlanRepository.findByName("ADMIN_MONTHLY").ifPresentOrElse(
+                plan -> {
+                    plan.setPrice(new BigDecimal("299.00"));
+                    subscriptionPlanRepository.save(plan);
+                },
+                () -> subscriptionPlanRepository.save(SubscriptionPlan.builder()
+                        .name("ADMIN_MONTHLY")
+                        .targetRole("ROLE_ADMIN")
+                        .price(new BigDecimal("299.00"))
+                        .currency("INR")
+                        .billingCycle("MONTHLY")
+                        .trialDays(7)
+                        .active(true)
+                        .build())
+        );
+
+        subscriptionPlanRepository.findByName("USER_MONTHLY").ifPresentOrElse(
+                plan -> {
+                    plan.setPrice(new BigDecimal("99.00"));
+                    subscriptionPlanRepository.save(plan);
+                },
+                () -> subscriptionPlanRepository.save(SubscriptionPlan.builder()
+                        .name("USER_MONTHLY")
+                        .targetRole("ROLE_USER")
+                        .price(new BigDecimal("99.00"))
+                        .currency("INR")
+                        .billingCycle("MONTHLY")
+                        .trialDays(7)
+                        .active(true)
+                        .build())
+        );
 
         // 1. Initialize Roles
         Role adminRole = roleRepository.findByName("ROLE_ADMIN")
@@ -81,6 +116,42 @@ public class DataInitializer implements CommandLineRunner {
                     .build());
         });
 
+        User expiredUser = userRepository.findByEmail("expired@crm.com").orElseGet(() -> {
+            logger.info("Seeding Expired Subscription Agent: expired@crm.com / agent123");
+            return userRepository.save(User.builder()
+                    .name("Expired Test Agent")
+                    .email("expired@crm.com")
+                    .phone("+91 98765 00004")
+                    .password(passwordEncoder.encode("agent123"))
+                    .role(userRole)
+                    .status("ACTIVE")
+                    .build());
+        });
+
+        // Set up explicitly EXPIRED subscription for expired@crm.com
+        SubscriptionPlan userPlan = subscriptionPlanRepository.findByName("USER_MONTHLY").orElse(null);
+        if (userPlan != null) {
+            subscriptionRepository.findByUserId(expiredUser.getId()).ifPresentOrElse(
+                    sub -> {
+                        sub.setStatus(SubscriptionStatus.EXPIRED);
+                        sub.setTrialEndAt(LocalDateTime.now().minusDays(2));
+                        sub.setCurrentPeriodEnd(LocalDateTime.now().minusDays(1));
+                        subscriptionRepository.save(sub);
+                    },
+                    () -> {
+                        subscriptionRepository.save(Subscription.builder()
+                                .user(expiredUser)
+                                .plan(userPlan)
+                                .status(SubscriptionStatus.EXPIRED)
+                                .trialStartAt(LocalDateTime.now().minusDays(9))
+                                .trialEndAt(LocalDateTime.now().minusDays(2))
+                                .currentPeriodStart(null)
+                                .currentPeriodEnd(LocalDateTime.now().minusDays(1))
+                                .build());
+                    }
+            );
+        }
+
         // Ensure all existing users and admins have default shift assigned (10:00 AM – 07:00 PM)
         try {
             List<User> allUsers = userRepository.findAll();
@@ -111,6 +182,11 @@ public class DataInitializer implements CommandLineRunner {
             if (agent2FbUid != null && agent2.getFirebaseUid() == null) {
                 agent2.setFirebaseUid(agent2FbUid);
                 userRepository.save(agent2);
+            }
+            String expiredFbUid = firebaseAuthService.createFirebaseUser("expired@crm.com", "agent123", "Expired Test Agent");
+            if (expiredFbUid != null && expiredUser.getFirebaseUid() == null) {
+                expiredUser.setFirebaseUid(expiredFbUid);
+                userRepository.save(expiredUser);
             }
         } catch (Exception e) {
             logger.warn("Could not sync seed users to Firebase Authentication: {}", e.getMessage());

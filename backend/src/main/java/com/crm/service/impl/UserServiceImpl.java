@@ -56,6 +56,7 @@ public class UserServiceImpl implements UserService {
     private final UserMapper userMapper;
     private final AuditService auditService;
     private final FirebaseAuthService firebaseAuthService;
+    private final com.crm.service.SubscriptionService subscriptionService;
 
     @Override
     @Transactional
@@ -101,6 +102,13 @@ public class UserServiceImpl implements UserService {
 
         User saved = userRepository.save(user);
 
+        // Provision 7-Day Free Trial for new user account
+        try {
+            subscriptionService.initializeTrialForNewUser(saved);
+        } catch (Exception e) {
+            log.warn("Could not initialize subscription trial for new user {}: {}", saved.getEmail(), e.getMessage());
+        }
+
         auditService.logAction(currentUserId, "User", saved.getId(), "CREATE", null,
                 "Name: " + saved.getName() + ", Role: " + saved.getRole().getName() + ", Shift: " + saved.getShift().getDisplayName());
 
@@ -142,6 +150,13 @@ public class UserServiceImpl implements UserService {
                 .build();
 
         User saved = userRepository.save(user);
+
+        // Provision 7-Day Free Trial for newly registered account
+        try {
+            subscriptionService.initializeTrialForNewUser(saved);
+        } catch (Exception e) {
+            log.warn("Could not initialize subscription trial for newly registered user {}: {}", saved.getEmail(), e.getMessage());
+        }
 
         // Create Admin Notification for Pending Signup
         try {

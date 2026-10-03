@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { SplashScreen } from '../screens/splash/SplashScreen';
 import { LoginScreen } from '../screens/auth/LoginScreen';
 import { TabNavigator } from './TabNavigator';
+import { SubscriptionGate } from '../components/subscription/SubscriptionGate';
 import { LeadDetailsScreen } from '../screens/leads/LeadDetailsScreen';
 import { LeadTimelineScreen } from '../screens/leads/LeadTimelineScreen';
 import { LeadFollowUpsScreen } from '../screens/leads/LeadFollowUpsScreen';
@@ -23,6 +24,7 @@ import { AuditLogsScreen } from '../screens/admin/AuditLogsScreen';
 import { GoogleSheetsScreen } from '../screens/admin/GoogleSheetsScreen';
 import { FollowUpsScreen } from '../screens/followups/FollowUpsScreen';
 import { SettingsScreen } from '../screens/settings/SettingsScreen';
+import { SubscriptionScreen } from '../screens/settings/SubscriptionScreen';
 import { AnalyticsScreen } from '../screens/analytics/AnalyticsScreen';
 import { AdminNotificationsScreen } from '../screens/admin/AdminNotificationsScreen';
 import { UserNotificationsScreen } from '../screens/home/UserNotificationsScreen';
@@ -52,6 +54,14 @@ const NotificationsRouterScreen: React.FC = () => {
   return <UserNotificationsScreen />;
 };
 
+const MainWithSubscriptionGate: React.FC = () => {
+  return (
+    <SubscriptionGate>
+      <TabNavigator />
+    </SubscriptionGate>
+  );
+};
+
 export const AppNavigator: React.FC = () => {
   return (
     <NavigationContainer ref={navigationRef} theme={appNavTheme}>
@@ -64,7 +74,7 @@ export const AppNavigator: React.FC = () => {
       >
         <Stack.Screen name="Splash" component={SplashScreen} />
         <Stack.Screen name="Login" component={LoginScreen} />
-        <Stack.Screen name="Main" component={TabNavigator} />
+        <Stack.Screen name="Main" component={MainWithSubscriptionGate} />
         <Stack.Screen
           name="LeadDetails"
           component={LeadDetailsScreen}
@@ -158,6 +168,11 @@ export const AppNavigator: React.FC = () => {
         <Stack.Screen
           name="Notifications"
           component={NotificationsRouterScreen}
+          options={{ animation: 'slide_from_right' }}
+        />
+        <Stack.Screen
+          name="Subscription"
+          component={SubscriptionScreen}
           options={{ animation: 'slide_from_right' }}
         />
       </Stack.Navigator>

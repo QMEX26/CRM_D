@@ -338,6 +338,9 @@ export interface AdminDashboardSummary {
   activeProjects: number;
   convertedLeads: number;
   activeAgents: number;
+  totalUsers?: number;
+  activeUsers?: number;
+  acceptedUsers?: number;
   totalCalls: number;
   callsToday: number;
   connectedCalls: number;
@@ -501,7 +504,10 @@ export type RootStackParamList = {
   Settings: undefined;
   Notifications: undefined;
   Analytics: undefined;
+  Subscription: undefined;
 };
+
+export * from './subscription';
 
 export type MainTabParamList = {
   // Common / Role specific
