@@ -12,4 +12,6 @@ public interface SubscriptionPaymentRepository extends JpaRepository<Subscriptio
     Optional<SubscriptionPayment> findFirstByRazorpayOrderIdOrderByCreatedAtDesc(String razorpayOrderId);
     Optional<SubscriptionPayment> findFirstByRazorpayPaymentIdOrderByCreatedAtDesc(String razorpayPaymentId);
     List<SubscriptionPayment> findByUserIdOrderByCreatedAtDesc(Long userId);
+    List<SubscriptionPayment> findByUserId(Long userId);
+    void deleteByUserId(Long userId);
 }

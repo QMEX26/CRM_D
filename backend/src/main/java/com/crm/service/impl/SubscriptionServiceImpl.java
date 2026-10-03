@@ -105,38 +105,74 @@ public class SubscriptionServiceImpl implements SubscriptionService {
             }
         }
 
-        // If no subscription record exists for this user, dynamically provide plan info with null or inactive state
-        if (subscription == null) {
-            SubscriptionPlan plan = resolvePlanForUser(user);
-            return SubscriptionResponse.builder()
-                    .userId(user.getId())
-                    .userName(user.getName())
-                    .userEmail(user.getEmail())
-                    .userRole(user.getRole() != null ? user.getRole().getName() : "ROLE_USER")
-                    .plan(mapPlanToResponse(plan))
-                    .status("NONE")
-                    .isTrial(false)
-                    .isActive(false)
-                    .isExpired(false)
-                    .daysRemaining(0L)
-                    .build();
-        }
-
-        // Check for trial expiration based on server clock
         LocalDateTime now = LocalDateTime.now();
-        if (subscription.getStatus() == SubscriptionStatus.FREE_TRIAL) {
-            if (subscription.getTrialEndAt() != null && now.isAfter(subscription.getTrialEndAt())) {
+
+        // 1. If user has an active PAID subscription, it takes strict priority over trial
+        if (subscription != null && subscription.getStatus() == SubscriptionStatus.ACTIVE) {
+            if (subscription.getCurrentPeriodEnd() != null && subscription.getCurrentPeriodEnd().isAfter(now)) {
+                return mapSubscriptionToResponse(subscription);
+            } else {
+                // Paid subscription expired
                 subscription.setStatus(SubscriptionStatus.EXPIRED);
                 subscription = subscriptionRepository.save(subscription);
-            }
-        } else if (subscription.getStatus() == SubscriptionStatus.ACTIVE) {
-            if (subscription.getCurrentPeriodEnd() != null && now.isAfter(subscription.getCurrentPeriodEnd())) {
-                subscription.setStatus(SubscriptionStatus.EXPIRED);
-                subscription = subscriptionRepository.save(subscription);
+                return mapSubscriptionToResponse(subscription);
             }
         }
 
-        return mapSubscriptionToResponse(subscription);
+        // 2. If subscription is explicitly CANCELLED, honor the cancellation
+        if (subscription != null && subscription.getStatus() == SubscriptionStatus.CANCELLED) {
+            return mapSubscriptionToResponse(subscription);
+        }
+
+        // 3. Free Trial calculation based on user.created_at (Server Time)
+        // Formula: trialStart = user.created_at, trialEnd = user.created_at + 7 days
+        LocalDateTime createdAt = user.getCreatedAt() != null ? user.getCreatedAt() : now;
+        LocalDateTime trialStart = createdAt;
+        LocalDateTime trialEnd = createdAt.plusDays(7);
+        boolean isTrialValid = now.isBefore(trialEnd);
+
+        if (isTrialValid) {
+            long secondsRemaining = ChronoUnit.SECONDS.between(now, trialEnd);
+            long daysRemaining = (secondsRemaining + 86399) / 86400; // Ceiling to full remaining days
+            daysRemaining = Math.max(1, Math.min(7, daysRemaining));
+
+            if (subscription == null) {
+                SubscriptionPlan plan = resolvePlanForUser(user);
+                subscription = Subscription.builder()
+                        .user(user)
+                        .plan(plan)
+                        .status(SubscriptionStatus.FREE_TRIAL)
+                        .trialStartAt(trialStart)
+                        .trialEndAt(trialEnd)
+                        .build();
+                subscription = subscriptionRepository.save(subscription);
+            } else if (subscription.getStatus() != SubscriptionStatus.FREE_TRIAL) {
+                subscription.setStatus(SubscriptionStatus.FREE_TRIAL);
+                subscription.setTrialStartAt(trialStart);
+                subscription.setTrialEndAt(trialEnd);
+                subscription = subscriptionRepository.save(subscription);
+            }
+            return mapSubscriptionToResponse(subscription);
+        } else {
+            // Free trial has expired
+            if (subscription == null) {
+                SubscriptionPlan plan = resolvePlanForUser(user);
+                subscription = Subscription.builder()
+                        .user(user)
+                        .plan(plan)
+                        .status(SubscriptionStatus.EXPIRED)
+                        .trialStartAt(trialStart)
+                        .trialEndAt(trialEnd)
+                        .build();
+                subscription = subscriptionRepository.save(subscription);
+            } else if (subscription.getStatus() != SubscriptionStatus.EXPIRED) {
+                subscription.setStatus(SubscriptionStatus.EXPIRED);
+                if (subscription.getTrialStartAt() == null) subscription.setTrialStartAt(trialStart);
+                if (subscription.getTrialEndAt() == null) subscription.setTrialEndAt(trialEnd);
+                subscription = subscriptionRepository.save(subscription);
+            }
+            return mapSubscriptionToResponse(subscription);
+        }
     }
 
     @Override
@@ -329,20 +365,20 @@ public class SubscriptionServiceImpl implements SubscriptionService {
         }
 
         SubscriptionPlan plan = resolvePlanForUser(user);
-        LocalDateTime now = LocalDateTime.now();
-        int trialDays = plan.getTrialDays() != null ? plan.getTrialDays() : 7;
+        LocalDateTime trialStart = user.getCreatedAt() != null ? user.getCreatedAt() : LocalDateTime.now();
+        LocalDateTime trialEnd = trialStart.plusDays(7);
 
         Subscription subscription = Subscription.builder()
                 .user(user)
                 .plan(plan)
                 .status(SubscriptionStatus.FREE_TRIAL)
-                .trialStartAt(now)
-                .trialEndAt(now.plusDays(trialDays))
+                .trialStartAt(trialStart)
+                .trialEndAt(trialEnd)
                 .build();
 
         Subscription saved = subscriptionRepository.save(subscription);
-        log.info("Initialized {}-day FREE_TRIAL subscription for new user: {} (Plan: {})",
-                trialDays, user.getEmail(), plan.getName());
+        log.info("Initialized 7-day FREE_TRIAL subscription for new user: {} (Trial Start: {}, Trial End: {})",
+                user.getEmail(), trialStart, trialEnd);
 
         return saved;
     }
@@ -453,20 +489,39 @@ public class SubscriptionServiceImpl implements SubscriptionService {
         boolean isTrial = subscription.getStatus() == SubscriptionStatus.FREE_TRIAL;
         boolean isActive = subscription.getStatus() == SubscriptionStatus.ACTIVE;
         boolean isExpired = subscription.getStatus() == SubscriptionStatus.EXPIRED;
+        boolean isCancelled = subscription.getStatus() == SubscriptionStatus.CANCELLED;
 
-        if (isTrial && subscription.getTrialEndAt() != null) {
-            if (subscription.getTrialEndAt().isAfter(now)) {
-                long seconds = ChronoUnit.SECONDS.between(now, subscription.getTrialEndAt());
-                daysRemaining = (long) Math.ceil(seconds / 86400.0);
-                if (daysRemaining <= 0) daysRemaining = 1;
+        LocalDateTime trialStart = subscription.getTrialStartAt() != null
+                ? subscription.getTrialStartAt()
+                : (user.getCreatedAt() != null ? user.getCreatedAt() : now);
+        LocalDateTime trialEnd = subscription.getTrialEndAt() != null
+                ? subscription.getTrialEndAt()
+                : trialStart.plusDays(7);
+
+        if (isTrial) {
+            if (trialEnd.isAfter(now)) {
+                long seconds = ChronoUnit.SECONDS.between(now, trialEnd);
+                daysRemaining = (seconds + 86399) / 86400;
+                daysRemaining = Math.max(1, Math.min(7, daysRemaining));
+            } else {
+                daysRemaining = 0;
+                isTrial = false;
+                isExpired = true;
             }
         } else if (isActive && subscription.getCurrentPeriodEnd() != null) {
             if (subscription.getCurrentPeriodEnd().isAfter(now)) {
                 long seconds = ChronoUnit.SECONDS.between(now, subscription.getCurrentPeriodEnd());
-                daysRemaining = (long) Math.ceil(seconds / 86400.0);
+                daysRemaining = (seconds + 86399) / 86400;
                 if (daysRemaining <= 0) daysRemaining = 1;
+            } else {
+                daysRemaining = 0;
+                isActive = false;
+                isExpired = true;
             }
         }
+
+        String statusStr = isTrial ? "FREE_TRIAL" : (isActive ? "ACTIVE" : (isCancelled ? "CANCELLED" : "EXPIRED"));
+        String subscriptionType = isTrial ? "FREE_TRIAL" : (isActive ? "PAID" : (isCancelled ? "CANCELLED" : "EXPIRED"));
 
         return SubscriptionResponse.builder()
                 .id(subscription.getId())
@@ -475,14 +530,19 @@ public class SubscriptionServiceImpl implements SubscriptionService {
                 .userEmail(user.getEmail())
                 .userRole(user.getRole() != null ? user.getRole().getName() : "ROLE_USER")
                 .plan(mapPlanToResponse(subscription.getPlan()))
-                .status(subscription.getStatus().name())
-                .trialStartAt(subscription.getTrialStartAt())
-                .trialEndAt(subscription.getTrialEndAt())
+                .status(statusStr)
+                .subscriptionType(subscriptionType)
+                .isTrialActive(isTrial)
+                .trialStartDate(trialStart)
+                .trialEndDate(trialEnd)
+                .trialDaysRemaining(isTrial ? daysRemaining : 0L)
+                .trialStartAt(trialStart)
+                .trialEndAt(trialEnd)
                 .currentPeriodStart(subscription.getCurrentPeriodStart())
                 .currentPeriodEnd(subscription.getCurrentPeriodEnd())
                 .daysRemaining(daysRemaining)
                 .isTrial(isTrial)
-                .isActive(isActive)
+                .isActive(isActive || isTrial)
                 .isExpired(isExpired)
                 .build();
     }

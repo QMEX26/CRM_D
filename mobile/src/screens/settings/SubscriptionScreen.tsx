@@ -23,6 +23,7 @@ import { useSubscription } from '../../context/SubscriptionContext';
 import { subscriptionApi } from '../../api/subscriptionApi';
 import { Subscription, SubscriptionPlan, RazorpayOrderResponse } from '../../types/subscription';
 import { RazorpayCheckoutModal, RazorpaySuccessPayload } from '../../components/subscription/RazorpayCheckoutModal';
+import { FreeTrialCard } from '../../components/subscription/FreeTrialCard';
 
 interface SubscriptionScreenProps {
   isGateMode?: boolean;
@@ -136,7 +137,7 @@ export const SubscriptionScreen: React.FC<SubscriptionScreenProps> = ({ isGateMo
   };
 
   const isActive = subscription?.status === 'ACTIVE' && subscription?.isActive !== false;
-  const isTrial = !isActive && subscription?.status === 'FREE_TRIAL' && (subscription?.isTrial || (subscription?.daysRemaining ?? 0) > 0);
+  const isTrial = !isActive && (subscription?.status === 'FREE_TRIAL' || subscription?.isTrial === true || (subscription?.daysRemaining ?? 0) > 0);
   const isExpired = subscription?.status === 'EXPIRED' || (!isActive && !isTrial);
 
   const planPrice = plan?.price ?? (isAdmin ? 299 : 99);
@@ -177,63 +178,50 @@ export const SubscriptionScreen: React.FC<SubscriptionScreenProps> = ({ isGateMo
             ]}
             showsVerticalScrollIndicator={false}
           >
-            {/* Status Card */}
-            <GradientView
-              colors={
-                isActive
-                  ? ['#065F46', '#047857']
-                  : isTrial
-                  ? ['#1E3A8A', '#2563EB']
-                  : ['#7F1D1D', '#991B1B']
-              }
-              style={styles.statusCard}
-            >
-              <View style={styles.statusHeader}>
-                <View style={styles.statusBadgeRow}>
-                  <Ionicons
-                    name={
-                      isActive
-                        ? 'checkmark-circle'
-                        : isTrial
-                        ? 'timer-outline'
-                        : 'lock-closed'
-                    }
-                    size={22}
-                    color="#FFFFFF"
-                  />
-                  <Text style={styles.statusTitle}>
-                    {isActive
-                      ? 'ACTIVE SUBSCRIPTION'
-                      : isTrial
-                      ? '7-DAY FREE TRIAL'
-                      : 'SUBSCRIPTION REQUIRED'}
-                  </Text>
-                </View>
-                <View style={styles.roleChip}>
-                  <Text style={styles.roleChipText}>
-                    {isAdmin ? 'ADMIN' : 'AGENT'}
-                  </Text>
-                </View>
-              </View>
+            {/* Free Trial 7-Day Block Indicator (Shown if on trial or trial expired without paid plan) */}
+            {!isActive && (
+              <FreeTrialCard
+                isTrialActive={isTrial}
+                trialDaysRemaining={subscription?.trialDaysRemaining ?? subscription?.daysRemaining ?? 0}
+                trialStartDate={subscription?.trialStartDate ?? subscription?.trialStartAt}
+                trialEndDate={subscription?.trialEndDate ?? subscription?.trialEndAt}
+                isExpired={isExpired}
+              />
+            )}
 
-              <Text style={styles.statusSubtitle}>
-                {isActive
-                  ? `Your subscription is active and in good standing.`
-                  : isTrial
-                  ? `You have ${subscription?.daysRemaining ?? 7} day(s) remaining in your free trial.`
-                  : `Your free trial/subscription has ended. Subscribe below to continue using the CRM.`}
-              </Text>
+            {/* Status Card (Shown when Active Paid Plan is present) */}
+            {isActive && (
+              <GradientView
+                colors={['#065F46', '#047857']}
+                style={styles.statusCard}
+              >
+                <View style={styles.statusHeader}>
+                  <View style={styles.statusBadgeRow}>
+                    <Ionicons name="checkmark-circle" size={22} color="#FFFFFF" />
+                    <Text style={styles.statusTitle}>ACTIVE SUBSCRIPTION</Text>
+                  </View>
+                  <View style={styles.roleChip}>
+                    <Text style={styles.roleChipText}>
+                      {isAdmin ? 'ADMIN' : 'AGENT'}
+                    </Text>
+                  </View>
+                </View>
 
-              {subscription?.currentPeriodEnd && isActive && (
-                <Text style={styles.expiryNote}>
-                  Renewal Date: {new Date(subscription.currentPeriodEnd).toLocaleDateString('en-IN', {
-                    day: 'numeric',
-                    month: 'short',
-                    year: 'numeric',
-                  })}
+                <Text style={styles.statusSubtitle}>
+                  Your subscription is active and in good standing.
                 </Text>
-              )}
-            </GradientView>
+
+                {subscription?.currentPeriodEnd && (
+                  <Text style={styles.expiryNote}>
+                    Renewal Date: {new Date(subscription.currentPeriodEnd).toLocaleDateString('en-IN', {
+                      day: 'numeric',
+                      month: 'short',
+                      year: 'numeric',
+                    })}
+                  </Text>
+                )}
+              </GradientView>
+            )}
 
             {/* Plan Card */}
             <View style={styles.planCard}>

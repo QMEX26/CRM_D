@@ -117,4 +117,41 @@ public class UserControllerTest extends BaseControllerTest {
                         .content(objectMapper.writeValueAsString(statusReq)))
                 .andExpect(status().isOk());
     }
+
+    @Test
+    @DisplayName("DELETE /api/v1/users/{id} should delete user and cascade all subscriptions and data")
+    void testDeleteUserWithCascadeAssociations() throws Exception {
+        // 1. Create a user to delete
+        UserCreateRequest createReq = new UserCreateRequest("Delete Me", "deleteme@crm.com", "+91 99999 11223", "pass1234", "USER", "ACTIVE", "SHIFT_1000_1900");
+        String createRes = mockMvc.perform(post("/api/v1/users")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(createReq)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        com.fasterxml.jackson.databind.JsonNode rootNode = objectMapper.readTree(createRes);
+        long userId = rootNode.path("data").path("id").asLong();
+
+        // 2. Cannot delete self
+        mockMvc.perform(delete("/api/v1/users/1")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken))
+                .andExpect(status().isBadRequest());
+
+        // 3. User cannot delete users (403)
+        mockMvc.perform(delete("/api/v1/users/" + userId)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + agentToken))
+                .andExpect(status().isForbidden());
+
+        // 4. Admin deletes user cleanly
+        mockMvc.perform(delete("/api/v1/users/" + userId)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success", is(true)));
+
+        // 5. User no longer exists
+        mockMvc.perform(get("/api/v1/users/" + userId)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken))
+                .andExpect(status().isNotFound());
+    }
 }

@@ -52,6 +52,8 @@ public class UserServiceImpl implements UserService {
     private final ShiftChangeRequestRepository shiftChangeRequestRepository;
     private final AdminAccessRequestRepository adminAccessRequestRepository;
     private final GoogleSheetsSyncLogRepository googleSheetsSyncLogRepository;
+    private final SubscriptionRepository subscriptionRepository;
+    private final SubscriptionPaymentRepository subscriptionPaymentRepository;
     private final PasswordEncoder passwordEncoder;
     private final UserMapper userMapper;
     private final AuditService auditService;
@@ -361,13 +363,29 @@ public class UserServiceImpl implements UserService {
         int assignedLeadCount = userAssignments.size();
         leadAssignmentRepository.deleteAll(userAssignments);
 
-        // 3. Delete or clear audit logs for this user
-        auditLogRepository.deleteByUserId(id);
+        // 3. Delete subscription payments & subscriptions for this user
+        List<com.crm.model.SubscriptionPayment> userPayments = subscriptionPaymentRepository.findByUserId(id);
+        if (!userPayments.isEmpty()) {
+            subscriptionPaymentRepository.deleteAll(userPayments);
+        }
+        List<com.crm.model.Subscription> userSubscriptions = subscriptionRepository.findAllByUserId(id);
+        if (!userSubscriptions.isEmpty()) {
+            subscriptionRepository.deleteAll(userSubscriptions);
+        }
 
-        // 4. Delete follow-ups assigned to this user
-        followUpRepository.deleteByUserId(id);
+        // 4. Delete or clear audit logs for this user
+        List<AuditLog> userAuditLogs = auditLogRepository.findByUserId(id);
+        if (!userAuditLogs.isEmpty()) {
+            auditLogRepository.deleteAll(userAuditLogs);
+        }
 
-        // 5. Delete or update calls referencing this user
+        // 5. Delete follow-ups assigned to this user
+        List<com.crm.model.FollowUp> userFollowUps = followUpRepository.findByUserId(id);
+        if (!userFollowUps.isEmpty()) {
+            followUpRepository.deleteAll(userFollowUps);
+        }
+
+        // 6. Delete or update calls referencing this user
         List<com.crm.model.Call> classifiedCalls = callRepository.findByClassificationChangedById(id);
         if (!classifiedCalls.isEmpty()) {
             for (com.crm.model.Call c : classifiedCalls) {
@@ -375,22 +393,39 @@ public class UserServiceImpl implements UserService {
             }
             callRepository.saveAll(classifiedCalls);
         }
-        callRepository.deleteByUserId(id);
+        List<com.crm.model.Call> userCalls = callRepository.findByUserId(id);
+        if (!userCalls.isEmpty()) {
+            callRepository.deleteAll(userCalls);
+        }
 
-        // 6. Delete notes authored by this user
-        noteRepository.deleteByUserId(id);
+        // 7. Delete notes authored by this user
+        List<com.crm.model.Note> userNotes = noteRepository.findByUserId(id);
+        if (!userNotes.isEmpty()) {
+            noteRepository.deleteAll(userNotes);
+        }
 
-        // 7. Clean up sales where user is this user
+        // 8. Clean up sales where user is this user
         List<Sale> sales = salesRepository.findByUserIdOrderByConvertedAtDesc(id);
-        salesRepository.deleteAll(sales);
+        if (!sales.isEmpty()) {
+            salesRepository.deleteAll(sales);
+        }
 
-        // 8. Delete attendance records for this user
+        // 9. Delete attendance records for this user
         attendanceRepository.deleteByUserId(id);
 
-        // 9. Delete notifications for this user
-        notificationRepository.deleteByUserId(id);
+        // 10. Delete notifications for this user and signup requests referring to this user
+        List<Notification> userNotifs = notificationRepository.findByUserIdOrderByCreatedAtDesc(id);
+        if (!userNotifs.isEmpty()) {
+            notificationRepository.deleteAll(userNotifs);
+        }
+        List<Notification> adminNotifs = notificationRepository.findAll().stream()
+                .filter(n -> id.equals(n.getReferenceId()))
+                .toList();
+        if (!adminNotifs.isEmpty()) {
+            notificationRepository.deleteAll(adminNotifs);
+        }
 
-        // 10. Clean up shift change requests for this user / reviewed by this user
+        // 11. Clean up shift change requests for this user / reviewed by this user
         List<com.crm.model.ShiftChangeRequest> reviewedShifts = shiftChangeRequestRepository.findByReviewedById(id);
         if (currentAdmin != null && !reviewedShifts.isEmpty()) {
             for (com.crm.model.ShiftChangeRequest scr : reviewedShifts) {
@@ -400,7 +435,7 @@ public class UserServiceImpl implements UserService {
         }
         shiftChangeRequestRepository.deleteByUserId(id);
 
-        // 11. Clean up admin access requests for this user / reviewed by this user
+        // 12. Clean up admin access requests for this user / reviewed by this user
         List<com.crm.model.AdminAccessRequest> reviewedAccess = adminAccessRequestRepository.findByReviewedById(id);
         if (currentAdmin != null && !reviewedAccess.isEmpty()) {
             for (com.crm.model.AdminAccessRequest aar : reviewedAccess) {
@@ -410,13 +445,13 @@ public class UserServiceImpl implements UserService {
         }
         adminAccessRequestRepository.deleteByUserId(id);
 
-        // 12. Clean up Google sheets sync logs triggered by this user
+        // 13. Clean up Google sheets sync logs triggered by this user
         googleSheetsSyncLogRepository.deleteByTriggeredById(id);
 
-        // 13. Flush all cascade deletions & updates to MySQL before removing the User row
+        // 14. Flush all cascade deletions & updates to MySQL before removing the User row
         entityManager.flush();
 
-        // 14. Delete user from Firebase Auth if linked (safely)
+        // 15. Delete user from Firebase Auth if linked (safely)
         if (user.getFirebaseUid() != null) {
             try {
                 firebaseAuthService.deleteFirebaseUser(user.getFirebaseUid());
@@ -425,7 +460,7 @@ public class UserServiceImpl implements UserService {
             }
         }
 
-        // 15. Delete user from MySQL and flush
+        // 16. Delete user from MySQL and flush
         userRepository.delete(user);
         entityManager.flush();
 

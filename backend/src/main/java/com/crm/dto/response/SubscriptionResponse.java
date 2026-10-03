@@ -19,6 +19,15 @@ public class SubscriptionResponse {
     private String userRole;
     private SubscriptionPlanResponse plan;
     private String status; // FREE_TRIAL, ACTIVE, EXPIRED, CANCELLED
+    private String subscriptionType; // FREE_TRIAL, PAID, EXPIRED, CANCELLED
+
+    // Free Trial specific fields
+    private Boolean isTrialActive;
+    private LocalDateTime trialStartDate;
+    private LocalDateTime trialEndDate;
+    private Long trialDaysRemaining;
+
+    // Existing compatibility fields
     private LocalDateTime trialStartAt;
     private LocalDateTime trialEndAt;
     private LocalDateTime currentPeriodStart;
@@ -28,3 +37,4 @@ public class SubscriptionResponse {
     private Boolean isActive;
     private Boolean isExpired;
 }
+

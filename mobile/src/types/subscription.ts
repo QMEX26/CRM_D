@@ -24,6 +24,11 @@ export interface Subscription {
   userRole: string;
   plan: SubscriptionPlan;
   status: SubscriptionStatusType;
+  subscriptionType?: 'FREE_TRIAL' | 'PAID' | 'EXPIRED' | 'CANCELLED' | 'NONE';
+  isTrialActive?: boolean;
+  trialStartDate?: string;
+  trialEndDate?: string;
+  trialDaysRemaining?: number;
   trialStartAt?: string;
   trialEndAt?: string;
   currentPeriodStart?: string;

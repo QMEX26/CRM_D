@@ -82,8 +82,12 @@ public class SubscriptionControllerTest {
                         .build())
         );
 
-        subscriptionPlanRepository.findByName("USER_MONTHLY").orElseGet(() ->
-                subscriptionPlanRepository.save(SubscriptionPlan.builder()
+        subscriptionPlanRepository.findByName("USER_MONTHLY").ifPresentOrElse(
+                plan -> {
+                    plan.setPrice(new BigDecimal("99.00"));
+                    subscriptionPlanRepository.save(plan);
+                },
+                () -> subscriptionPlanRepository.save(SubscriptionPlan.builder()
                         .name("USER_MONTHLY")
                         .targetRole("ROLE_USER")
                         .price(new BigDecimal("99.00"))

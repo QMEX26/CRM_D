@@ -33,6 +33,7 @@ public class DataInitializer implements CommandLineRunner {
     private final com.crm.service.FirebaseAuthService firebaseAuthService;
     private final com.crm.repository.SubscriptionPlanRepository subscriptionPlanRepository;
     private final com.crm.repository.SubscriptionRepository subscriptionRepository;
+    private final jakarta.persistence.EntityManager entityManager;
 
     @Override
     @Transactional
@@ -134,6 +135,7 @@ public class DataInitializer implements CommandLineRunner {
             subscriptionRepository.findByUserId(expiredUser.getId()).ifPresentOrElse(
                     sub -> {
                         sub.setStatus(SubscriptionStatus.EXPIRED);
+                        sub.setTrialStartAt(LocalDateTime.now().minusDays(9));
                         sub.setTrialEndAt(LocalDateTime.now().minusDays(2));
                         sub.setCurrentPeriodEnd(LocalDateTime.now().minusDays(1));
                         subscriptionRepository.save(sub);
@@ -150,6 +152,15 @@ public class DataInitializer implements CommandLineRunner {
                                 .build());
                     }
             );
+        }
+
+        // Set expiredUser created_at to 9 days ago so formula (trialEnd = created_at + 7 days) evaluates as expired
+        try {
+            entityManager.createNativeQuery("UPDATE users SET created_at = :cat WHERE email = 'expired@crm.com'")
+                    .setParameter("cat", java.sql.Timestamp.valueOf(LocalDateTime.now().minusDays(9)))
+                    .executeUpdate();
+        } catch (Exception e) {
+            logger.warn("Could not update expiredUser created_at: {}", e.getMessage());
         }
 
         // Ensure all existing users and admins have default shift assigned (10:00 AM – 07:00 PM)

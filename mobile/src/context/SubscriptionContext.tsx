@@ -74,17 +74,15 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
 
   // Subscription state logic
   const isTrialActive =
-    subscription?.status === 'FREE_TRIAL' &&
-    (subscription.isTrial || subscription.daysRemaining > 0);
+    (subscription?.status === 'FREE_TRIAL' || subscription?.isTrialActive === true) &&
+    (subscription?.isTrial || (subscription?.trialDaysRemaining ?? subscription?.daysRemaining ?? 0) > 0);
 
   const isSubscriptionActive =
-    subscription?.status === 'ACTIVE' && subscription.isActive;
+    subscription?.status === 'ACTIVE' && subscription.isActive && !isTrialActive;
 
   const isSubscriptionExpired =
     subscription?.status === 'EXPIRED' ||
-    (subscription?.status === 'FREE_TRIAL' &&
-      subscription.daysRemaining <= 0 &&
-      !subscription.isTrial);
+    (!isTrialActive && !isSubscriptionActive && subscription?.status !== 'CANCELLED');
 
   const isSubscriptionCancelled = subscription?.status === 'CANCELLED';
 
@@ -95,7 +93,7 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
   const requiresSubscription =
     !isLoading && !error && subscription !== null && !isAccessGranted;
 
-  const daysRemaining = subscription?.daysRemaining ?? 0;
+  const daysRemaining = subscription?.trialDaysRemaining ?? subscription?.daysRemaining ?? 0;
 
   return (
     <SubscriptionContext.Provider
