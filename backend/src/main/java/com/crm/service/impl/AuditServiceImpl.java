@@ -48,7 +48,7 @@ public class AuditServiceImpl implements AuditService {
     @Override
     @Transactional(readOnly = true)
     public Page<AuditLogResponse> searchAuditLogs(String entityName, Long userId, String action, Pageable pageable) {
-        return auditLogRepository.searchAuditLogs(entityName, userId, action, pageable)
+        return auditLogRepository.findAll(com.crm.specification.AuditLogSpecification.filterLogs(entityName, userId, action), pageable)
                 .map(auditLogMapper::toResponse);
     }
 }

@@ -1134,24 +1134,24 @@ export const LoginScreen: React.FC = () => {
               <View style={styles.presetButtonsRow}>
                 <TouchableOpacity
                   style={styles.presetBtn}
-                  onPress={() => setServerUrlInput('https://procedures-anderson-importance-drivers.trycloudflare.com/api/v1')}
+                  onPress={() => setServerUrlInput('https://crm-local-sync-99.loca.lt/api/v1')}
                 >
                   <Ionicons name="cloud-done-outline" size={14} color="#16A34A" />
-                  <Text style={styles.presetBtnText}>Cloudflare HTTPS Tunnel (Recommended)</Text>
+                  <Text style={styles.presetBtnText}>Live Tunnel (crm-local-sync-99)</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.presetBtn}
-                  onPress={() => setServerUrlInput('http://192.168.1.16:8080/api/v1')}
+                  onPress={() => setServerUrlInput('http://192.168.1.12:8080/api/v1')}
                 >
                   <Ionicons name="wifi-outline" size={14} color="#2563EB" />
-                  <Text style={styles.presetBtnText}>Local Wi-Fi (192.168.1.16:8080)</Text>
+                  <Text style={styles.presetBtnText}>Local Wi-Fi (192.168.1.12:8080)</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.presetBtn}
-                  onPress={() => setServerUrlInput('https://crm-b4a1.onrender.com/api/v1')}
+                  onPress={() => setServerUrlInput('http://localhost:8080/api/v1')}
                 >
-                  <Ionicons name="globe-outline" size={14} color="#7C3AED" />
-                  <Text style={styles.presetBtnText}>Render Cloud Production</Text>
+                  <Ionicons name="desktop-outline" size={14} color="#0284C7" />
+                  <Text style={styles.presetBtnText}>Localhost (Web/Emulator)</Text>
                 </TouchableOpacity>
               </View>
 

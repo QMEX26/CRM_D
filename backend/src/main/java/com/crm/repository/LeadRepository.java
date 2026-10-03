@@ -11,8 +11,10 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+
 @Repository
-public interface LeadRepository extends JpaRepository<Lead, Long> {
+public interface LeadRepository extends JpaRepository<Lead, Long>, JpaSpecificationExecutor<Lead> {
     boolean existsByProjectIdAndPhone(Long projectId, String phone);
 
     Optional<Lead> findByProjectIdAndPhone(Long projectId, String phone);

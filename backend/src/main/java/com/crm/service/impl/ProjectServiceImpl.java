@@ -118,7 +118,7 @@ public class ProjectServiceImpl implements ProjectService {
     @Override
     @Transactional(readOnly = true)
     public Page<ProjectResponse> searchProjects(String search, String status, Pageable pageable) {
-        return projectRepository.searchProjects(search, status, pageable)
+        return projectRepository.findAll(com.crm.specification.ProjectSpecification.filterProjects(search, status), pageable)
                 .map(this::getProjectStatsResponse);
     }
 

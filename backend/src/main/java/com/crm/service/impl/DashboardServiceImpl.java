@@ -137,7 +137,9 @@ public class DashboardServiceImpl implements DashboardService {
                 .map(followUpMapper::toResponse)
                 .toList();
 
-        List<CallResponse> recentCalls = callRepository.searchCalls(userId, null, null, null, null, null, null, PageRequest.of(0, 5))
+        List<CallResponse> recentCalls = callRepository.findAll(
+                com.crm.specification.CallSpecification.filterCalls(userId, null, null, null, null, null, null),
+                PageRequest.of(0, 5, org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt")))
                 .getContent().stream()
                 .map(callMapper::toResponse)
                 .toList();

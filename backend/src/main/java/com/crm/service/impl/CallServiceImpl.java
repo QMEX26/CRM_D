@@ -185,7 +185,7 @@ public class CallServiceImpl implements CallService {
     @Transactional(readOnly = true)
     public Page<CallResponse> searchCalls(Long userId, Long leadId, Long projectId, String status, String outcome,
                                           LocalDateTime startDate, LocalDateTime endDate, Pageable pageable) {
-        return callRepository.searchCalls(userId, leadId, projectId, status, outcome, startDate, endDate, pageable)
+        return callRepository.findAll(com.crm.specification.CallSpecification.filterCalls(userId, leadId, projectId, status, outcome, startDate, endDate), pageable)
                 .map(callMapper::toResponse);
     }
 

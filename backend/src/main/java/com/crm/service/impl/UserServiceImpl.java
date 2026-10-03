@@ -462,7 +462,7 @@ public class UserServiceImpl implements UserService {
             cleanStatus = status.trim().toUpperCase();
         }
 
-        return userRepository.searchUsers(cleanSearch, cleanRole, cleanStatus, pageable)
+        return userRepository.findAll(com.crm.specification.UserSpecification.filterUsers(cleanSearch, cleanRole, cleanStatus), pageable)
                 .map(user -> {
                     long activeLeads = leadAssignmentRepository.countByUserIdAndIsActiveTrue(user.getId());
                     return userMapper.toResponse(user, activeLeads, 0);

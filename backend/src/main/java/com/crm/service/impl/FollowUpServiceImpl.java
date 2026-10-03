@@ -127,7 +127,7 @@ public class FollowUpServiceImpl implements FollowUpService {
     @Override
     @Transactional(readOnly = true)
     public Page<FollowUpResponse> searchFollowUps(Long userId, String status, LocalDateTime start, LocalDateTime end, Pageable pageable) {
-        return followUpRepository.searchFollowUps(userId, status, start, end, pageable)
+        return followUpRepository.findAll(com.crm.specification.FollowUpSpecification.filterFollowUps(userId, status, start, end), pageable)
                 .map(followUpMapper::toResponse);
     }
 

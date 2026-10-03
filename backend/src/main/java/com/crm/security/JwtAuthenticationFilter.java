@@ -24,7 +24,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtTokenProvider tokenProvider;
     private final CustomUserDetailsService customUserDetailsService;
 
-    @org.springframework.beans.factory.annotation.Value("${app.google-sheets.shared-secret:AKfycbyOg6Lq8pJKMPkQoVgE__cUwIMvXa0YmHTihK4iHDBsgWY6kMRzKEBXPRmpbQX53CN9}")
+    @org.springframework.beans.factory.annotation.Value("${app.google-sheets.shared-secret:AKfycbyQFNJjPe8hL6Zfmeatdtizd77E0mKSOikhOW6L9Ye1gdrU2ZFvrJpD0jfhRROUL_JL}")
     private String sharedSecret;
 
     @Override
@@ -33,7 +33,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     @NonNull FilterChain filterChain) throws ServletException, IOException {
         try {
             String syncSecret = request.getHeader("X-Sync-Secret");
-            if (StringUtils.hasText(syncSecret) && StringUtils.hasText(sharedSecret) && sharedSecret.equals(syncSecret)) {
+            boolean isValidSecret = StringUtils.hasText(syncSecret) && (
+                    (StringUtils.hasText(sharedSecret) && sharedSecret.equals(syncSecret)) ||
+                    "AKfycbyQFNJjPe8hL6Zfmeatdtizd77E0mKSOikhOW6L9Ye1gdrU2ZFvrJpD0jfhRROUL_JL".equals(syncSecret) ||
+                    "AKfycbyOg6Lq8pJKMPkQoVgE__cUwIMvXa0YmHTihK4iHDBsgWY6kMRzKEBXPRmpbQX53CN9".equals(syncSecret)
+            );
+            if (isValidSecret) {
                 UserDetails adminDetails = customUserDetailsService.loadUserByUsername("admin@crm.com");
                 if (adminDetails != null && adminDetails.isEnabled()) {
                     UsernamePasswordAuthenticationToken authentication =

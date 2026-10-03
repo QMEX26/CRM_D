@@ -11,8 +11,10 @@ import org.springframework.stereotype.Repository;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+
 @Repository
-public interface FollowUpRepository extends JpaRepository<FollowUp, Long> {
+public interface FollowUpRepository extends JpaRepository<FollowUp, Long>, JpaSpecificationExecutor<FollowUp> {
     List<FollowUp> findByLeadIdOrderByScheduledTimeDesc(Long leadId);
 
     @Query("SELECT f FROM FollowUp f WHERE " +

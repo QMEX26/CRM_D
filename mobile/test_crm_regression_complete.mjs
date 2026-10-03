@@ -16,7 +16,7 @@ if (fs.existsSync(envPath)) {
   }
 }
 
-const FIREBASE_API_KEY = "AIzaSyBFXGeQ0OytxoSKwgj8o1gdf7m7O0VwNEk";
+const FIREBASE_API_KEY = "AIzaSyB1gM9Oklmrm9IZUwb7kM34Y8Dzk_I4NX0";
 const RAW_URL = baseUrlFromEnv || "http://127.0.0.1:8080";
 const BACKEND_URL = RAW_URL.endsWith('/api/v1') ? RAW_URL : `${RAW_URL.replace(/\/+$/, '')}/api/v1`;
 

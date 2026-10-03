@@ -11,8 +11,10 @@ import org.springframework.stereotype.Repository;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+
 @Repository
-public interface CallRepository extends JpaRepository<Call, Long> {
+public interface CallRepository extends JpaRepository<Call, Long>, JpaSpecificationExecutor<Call> {
     List<Call> findByLeadIdOrderByCreatedAtDesc(Long leadId);
 
     java.util.Optional<Call> findByTelephonyCallId(String telephonyCallId);

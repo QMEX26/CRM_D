@@ -285,11 +285,11 @@ public class LeadServiceImpl implements LeadService {
                                                 Long currentUserId, boolean isAdmin, Pageable pageable) {
         Page<Lead> leads;
         if (Boolean.TRUE.equals(assignedToMe) || !isAdmin) {
-            leads = leadRepository.searchAssignedLeads(currentUserId, projectId, status, outcome, search, pageable);
+            leads = leadRepository.findAll(com.crm.specification.LeadSpecification.filterLeads(currentUserId, projectId, status, outcome, search, true), pageable);
         } else if (assignedUserId != null) {
-            leads = leadRepository.searchAssignedLeads(assignedUserId, projectId, status, outcome, search, pageable);
+            leads = leadRepository.findAll(com.crm.specification.LeadSpecification.filterLeads(assignedUserId, projectId, status, outcome, search, true), pageable);
         } else {
-            leads = leadRepository.searchLeads(projectId, status, outcome, search, pageable);
+            leads = leadRepository.findAll(com.crm.specification.LeadSpecification.filterLeads(null, projectId, status, outcome, search, false), pageable);
         }
 
         return leads.map(lead -> {
