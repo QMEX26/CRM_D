@@ -11,7 +11,7 @@ import Constants from 'expo-constants';
  * 4. Constants.expoConfig?.extra?.apiBaseUrl (dynamic app.config.js injection)
  * 5. (Constants.manifest as any)?.extra?.apiBaseUrl (Expo manifest fallback)
  */
-const DEFAULT_PROD_URL = 'https://procedures-anderson-importance-drivers.trycloudflare.com';
+const DEFAULT_PROD_URL = 'https://crm-d-d7b7.onrender.com';
 
 const getRawEnvBaseUrl = (): string => {
   // 1. Explicit environment variable (.env) takes highest priority

@@ -311,7 +311,7 @@ public class UserServiceImpl implements UserService {
         auditService.logAction(currentUserId, "User", updated.getId(), "UPDATE", oldDetails, newDetails);
 
         long activeLeads = leadAssignmentRepository.countByUserIdAndIsActiveTrue(updated.getId());
-        long totalCalls = callRepository.countByUserIdAndCreatedAtBetween(updated.getId(), java.time.LocalDateTime.MIN, java.time.LocalDateTime.MAX);
+        long totalCalls = callRepository.countByUserId(updated.getId());
 
         return userMapper.toResponse(updated, activeLeads, totalCalls);
     }

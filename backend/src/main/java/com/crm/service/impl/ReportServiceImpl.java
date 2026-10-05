@@ -59,7 +59,7 @@ public class ReportServiceImpl implements ReportService {
             map.put("status", user.getStatus());
 
             long assignedLeads = leadAssignmentRepository.countByUserIdAndIsActiveTrue(user.getId());
-            long totalCalls = callRepository.countByUserIdAndCreatedAtBetween(user.getId(), LocalDateTime.MIN, LocalDateTime.MAX);
+            long totalCalls = callRepository.countByUserId(user.getId());
             long totalDuration = callRepository.sumDurationByUserId(user.getId());
             long conversions = salesRepository.countByUserId(user.getId());
             BigDecimal totalRevenue = salesRepository.sumDealValueByUserId(user.getId());

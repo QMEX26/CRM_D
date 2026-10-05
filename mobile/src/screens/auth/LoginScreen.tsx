@@ -1069,23 +1069,6 @@ export const LoginScreen: React.FC = () => {
               )}
             </View>
 
-            {/* Server Connection Settings Button */}
-            <TouchableOpacity
-              style={styles.serverSettingsBtn}
-              onPress={() => {
-                setServerUrlInput(getApiBaseUrl());
-                setTestStatus({ loading: false, message: undefined });
-                setShowServerModal(true);
-              }}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="server-outline" size={13} color="#6366F1" />
-              <Text style={styles.serverSettingsBtnText} numberOfLines={1}>
-                Server: {getApiBaseUrl().replace('https://', '').replace('http://', '')}
-              </Text>
-              <Ionicons name="settings-outline" size={13} color="#6366F1" />
-            </TouchableOpacity>
-
             {/* Bottom Security Footer */}
             <View style={styles.footerSection}>
               <View style={styles.shieldIconContainer}>

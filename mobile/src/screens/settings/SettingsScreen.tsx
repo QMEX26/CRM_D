@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Alert,
   Platform,
+  Linking,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -185,6 +186,20 @@ export const SettingsScreen: React.FC = () => {
           onPress: executeLogout,
         },
       ]);
+    }
+  };
+
+  const handleOpenPrivacyPolicy = async () => {
+    const url = 'https://qmex.in/privacy-policy/';
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+      } else {
+        await Linking.openURL(url);
+      }
+    } catch (err) {
+      Alert.alert('Error', 'Unable to open Privacy Policy.');
     }
   };
 
@@ -510,7 +525,23 @@ export const SettingsScreen: React.FC = () => {
 
           <View style={styles.menuDivider} />
 
-          {/* 5. About App */}
+          {/* 5. Privacy Policy */}
+          <TouchableOpacity
+            style={styles.menuItem}
+            activeOpacity={0.7}
+            onPress={handleOpenPrivacyPolicy}
+          >
+            <IconTile name="shield-checkmark" variant="green" size={38} iconSize={18} />
+            <View style={styles.menuInfo}>
+              <Text style={styles.menuTitle}>Privacy Policy</Text>
+              <Text style={styles.menuSubtitle}>View data protection & privacy terms</Text>
+            </View>
+            <Ionicons name="open-outline" size={18} color="#9CA3AF" />
+          </TouchableOpacity>
+
+          <View style={styles.menuDivider} />
+
+          {/* 6. About App */}
           <TouchableOpacity
             style={styles.menuItem}
             activeOpacity={0.7}
@@ -544,12 +575,23 @@ export const SettingsScreen: React.FC = () => {
                 <Text style={styles.infoKey}>Authentication</Text>
                 <Text style={styles.infoValue}>Spring Boot JWT (Secured)</Text>
               </View>
-              <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
+              <View style={styles.infoRow}>
                 <Text style={styles.infoKey}>Session Status</Text>
                 <Text style={[styles.infoValue, { color: '#16A34A', fontWeight: '700' }]}>
                   Active & Verified
                 </Text>
               </View>
+              <TouchableOpacity
+                style={[styles.infoRow, { borderBottomWidth: 0, paddingVertical: 10 }]}
+                activeOpacity={0.7}
+                onPress={handleOpenPrivacyPolicy}
+              >
+                <Text style={styles.infoKey}>Privacy Policy</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Text style={[styles.infoValue, { color: colors.primary }]}>qmex.in/privacy-policy</Text>
+                  <Ionicons name="open-outline" size={14} color={colors.primary} />
+                </View>
+              </TouchableOpacity>
             </View>
           )}
         </View>

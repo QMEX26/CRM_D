@@ -10,4 +10,5 @@ npm-debug.*
 yarn-debug.*
 yarn-error.*
 *.apk
+*.aab
 

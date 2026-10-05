@@ -13,13 +13,17 @@
         "buildType": "apk"
       },
       "env": {
-        "API_BASE_URL": "https://procedures-anderson-importance-drivers.trycloudflare.com",
-        "EXPO_PUBLIC_API_BASE_URL": "https://procedures-anderson-importance-drivers.trycloudflare.com"
+        "API_BASE_URL": "https://crm-d-d7b7.onrender.com",
+        "EXPO_PUBLIC_API_BASE_URL": "https://crm-d-d7b7.onrender.com"
       }
     },
     "production": {
       "android": {
         "buildType": "app-bundle"
+      },
+      "env": {
+        "API_BASE_URL": "https://crm-d-d7b7.onrender.com",
+        "EXPO_PUBLIC_API_BASE_URL": "https://crm-d-d7b7.onrender.com"
       }
     }
   },

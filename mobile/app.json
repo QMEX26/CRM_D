@@ -11,6 +11,7 @@
     },
     "android": {
       "package": "com.qmex.crmD",
+      "versionCode": 1,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",
@@ -27,11 +28,11 @@
       "expo-video"
     ],
     "extra": {
-      "apiBaseUrl": "https://procedures-anderson-importance-drivers.trycloudflare.com",
+      "apiBaseUrl": "https://crm-d-d7b7.onrender.com",
       "eas": {
-        "projectId": "19054731-661a-4d43-ae2a-de29e1f17064"
+        "projectId": "35e19691-6a50-44ad-b8c6-f745765c10bf"
       }
     },
-    "owner": "kishoreqmex"
+    "owner": "qmex"
   }
 }
